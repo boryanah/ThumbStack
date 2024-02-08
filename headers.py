@@ -19,6 +19,7 @@ from time import time
 from copy import copy
 import sys
 
+from importlib import reload
 
 # For CMB maps
 #from enlib import enmap, utils, powspec
@@ -69,13 +70,7 @@ import healpy as hp
 # for pretty plots
 
 from matplotlib import rc
-#rc('font',**{'size':'20','family':'sans-serif','sans-serif':['Computer Modern Sans serif']})
-rc('font',**{'size':'22','family':'serif','serif':['CMU serif']})
-rc('mathtext', **{'fontset':'cm'})
-rc('text', usetex=True)
-rc('text.latex', preamble='\usepackage{amsmath}, \usepackage{amssymb}')
-#rc('font', size=20)
-rc('legend',**{'fontsize':'18'})
+
 
 # fonty stuffs
 #font.serif: CMU Serif

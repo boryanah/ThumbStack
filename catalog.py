@@ -5,7 +5,7 @@ from headers import *
 
 class Catalog(object):
 
-   def __init__(self, U, MassConversion, name="test", nameLong=None, pathInCatalog="", rV=1.,  save=False, nObj=None):
+   def __init__(self, U, MassConversion, name="test", nameLong=None, pathInCatalog="", rV=1.,  save=False, nObj=None, out_dir='/pscratch/sd/b/boryanah/ACTxDESI/DESI/', fig_dir='/pscratch/sd/b/boryanah/ACTxDESI/figs/', cat_fn="/catalog.txt"):
       '''nObj: used to keep the first nObj objects of the catalog, useful for quick debugging
       '''
 
@@ -18,18 +18,37 @@ class Catalog(object):
       else:
          self.nameLong = nameLong
       self.pathInCatalog = pathInCatalog
-      
+
+      # B.H. shortcut I guess
+      if type(self.name) == list:
+         self.pathOut = [out_dir+n for n in self.name] 
+
+         for path in self.pathOut:
+            if not os.path.exists(path):
+               print("should not happen")
+               os.makedirs(path)
+
+         # catalog path
+         self.cat_fn = cat_fn
+         self.pathOutCatalog = [path + "/" + self.cat_fn for path in self.pathOut]
+         self.loadCatalog(nObj=nObj)
+
+         self.name = self.name[0].split('_')[0]+"_all" # lazy!!!!
+         
+         return
+         
       # Output path
-      self.pathOut = "./output/catalog/"+self.name
+      self.pathOut = out_dir+self.name 
       if not os.path.exists(self.pathOut):
          os.makedirs(self.pathOut)
       # catalog path
-      self.pathOutCatalog = self.pathOut + "/catalog.txt"
+      self.cat_fn = cat_fn
+      self.pathOutCatalog = self.pathOut + "/" + self.cat_fn # TODO 
       # path for vtk file (to visualize with VisIt)
       self.pathOutVtk = self.pathOut + "/catalog.vtk"
       
       # Figures path
-      self.pathFig = "./figures/catalog/"+self.name
+      self.pathFig = fig_dir+self.name
       if not os.path.exists(self.pathFig):
          os.makedirs(self.pathFig)
       
@@ -42,6 +61,7 @@ class Catalog(object):
          self.addIntegratedY()
          self.writeCatalog()
 
+      
       self.loadCatalog(nObj=nObj)
    
 
@@ -56,7 +76,7 @@ class Catalog(object):
       newPathOut = "./output/catalog/"+name
       if not os.path.exists(newPathOut):
          os.makedirs(newPathOut)
-      newPathOutCatalog = newPathOut + "/catalog.txt"
+      newPathOutCatalog = newPathOut + "/" + self.cat_fn
       # copy the output catalog
       copyfile(self.pathOutCatalog, newPathOutCatalog)
       
@@ -73,7 +93,7 @@ class Catalog(object):
       newPathOut = "./output/catalog/"+name
       if not os.path.exists(newPathOut):
          os.makedirs(newPathOut)
-      newPathOutCatalog = newPathOut + "/catalog.txt"
+      newPathOutCatalog = newPathOut + "/" + self.cat_fn
       # read the current catalog
       data = np.genfromtxt(self.pathOutCatalog)
       # keep only objects with indices in I
@@ -89,7 +109,7 @@ class Catalog(object):
    ##################################################################################
 
    def readInputCatalog(self):
-      print "- read input catalog from "+self.pathInCatalog
+      print("- read input catalog from "+self.pathInCatalog)
       data = np.genfromtxt(self.pathInCatalog)
       self.nObj = len(data[:,0])
       #
@@ -130,14 +150,13 @@ class Catalog(object):
       # Stellar masses
       self.Mstellar = data[:,18]   # [M_sun], from Maraston et al
 
-
    ##################################################################################
 
    def addHaloMass(self):
       """Generate halo masses in M_sun,
       from stellar masses in M_sun.
       """
-      print "- add halo masses"
+      print("- add halo masses")
       # flag: 1 if object has mass
       self.hasM = np.zeros(self.nObj)
       
@@ -167,7 +186,7 @@ class Catalog(object):
       = (total nb of electrons) * sigma_T / (a chi)^2
       [sr]
       """
-      print "- add integrated tau"
+      print("- add integrated tau")
       # convert from total mass to baryon mass
       # assuming cosmological abundance of baryons, and all baryons are in gas
       self.integratedTau = self.Mvir * self.U.bg.Omega0_b/self.U.bg.Omega0_m
@@ -196,7 +215,7 @@ class Catalog(object):
       """Integrated kSZ signal: int d^2theta n_e sigma_T (-v/c) Tcmb
       in [muK * sr]
       """
-      print "- add integrated kSZ"
+      print("- add integrated kSZ")
       self.integratedKSZ = - self.integratedTau * (self.vR/3.e5) * 2.726e6
 
    
@@ -206,7 +225,7 @@ class Catalog(object):
       To get dT in muK*sr, multiply by Tcmb * f(nu).
       Simple power-law fit to Greco et al 2014, fig4.
       """
-      print "- add integrated y"
+      print("- add integrated y")
       
       # in arcmin^2
       yCcyltilda = (self.Mstellar/1.e11)**3.2 * 1.e-6
@@ -223,7 +242,7 @@ class Catalog(object):
    ##################################################################################
 
    def writeCatalog(self):
-      print "- write full catalog to "+self.pathOutCatalog
+      print("- write full catalog to "+self.pathOutCatalog)
       data = np.zeros((self.nObj,24))
       #
       # sky coordinates and redshift
@@ -281,8 +300,17 @@ class Catalog(object):
 
 
    def loadCatalog(self, nObj=None):
-      print "- load full catalog from "+self.pathOutCatalog
-      data = np.genfromtxt(self.pathOutCatalog)
+      if type(self.pathOutCatalog) == list:
+         for i, path in enumerate(self.pathOutCatalog):
+            print("- load full catalog from "+path)
+            if i == 0:
+               data = np.genfromtxt(path)
+            else:
+               data = np.vstack((data, np.genfromtxt(path)))
+      else:
+         print("- load full catalog from "+self.pathOutCatalog)
+         data = np.genfromtxt(self.pathOutCatalog)
+         
       self.nObj = len(data[:nObj,0])
       #
       # sky coordinates and redshift
@@ -290,6 +318,8 @@ class Catalog(object):
       self.DEC = data[:nObj,1]   # [deg]
       self.Z = data[:nObj,2]
       #
+      # B.H.
+      """
       # observed cartesian coordinates
       self.coordX = data[:nObj,3]   # [Mpc/h]
       self.coordY = data[:nObj,4]   # [Mpc/h]
@@ -313,9 +343,11 @@ class Catalog(object):
       self.vY = data[:nObj,13]   #[km/s]
       self.vZ = data[:nObj,14]   #[km/s]
       #
+      """
       # velocity in spherical coordinates,
       # from catalog of spherical displacements
       self.vR = data[:nObj,15]  # [km/s]   from spherical catalog, >0 away from us
+      """
       self.vTheta = data[:nObj,16]   # [km/s]
       self.vPhi = data[:nObj,17]  # [km/s]
       #
@@ -324,11 +356,14 @@ class Catalog(object):
       #
       # Halo mass
       self.hasM = data[:nObj,19]
+      """
       self.Mvir = data[:nObj,20]  # [M_sun]
+      """
       #
       # Integrated optical depth [sr]: int d^2theta n_e^2d sigma_T = (total nb of electrons) * sigma_T / (a chi)^2
       self.integratedTau = data[:nObj,21]   # [sr]
       #
+      """
       # Integrated kSZ signal [muK * sr]: int d^2theta n_e sigma_T (-v/c) Tcmb
       self.integratedKSZ = data[:nObj, 22] # [muK * sr]
       #
@@ -336,14 +371,13 @@ class Catalog(object):
       # needs to be multiplied by Tcmb * f(nu) to get muK
       self.integratedY = data[:nObj, 23] # [sr]
 
-
    ##################################################################################
    ##################################################################################
 
 
    def writeVtk(self):
-      print "- save catalog to vtk file:"
-      print self.pathOutVtk
+      print("- save catalog to vtk file:")
+      print(self.pathOutVtk)
       # create vtk file
       f = open(self.pathOutVtk,'w')
       f.write('# vtk DataFile Version 3.0\n')
@@ -519,7 +553,7 @@ class Catalog(object):
 
       def matchObj(iObj):
          if iObj%10000==0:
-            print "matching object", iObj
+            print("matching object", iObj)
          ra = self.RA[iObj]
          dec = self.DEC[iObj]
          z = self.Z[iObj]
@@ -534,7 +568,7 @@ class Catalog(object):
          if (minDiff<1.):
             IMatch = np.where(diff==minDiff)[0]
             if len(IMatch) > 1:
-               print "Problem: got", len(IMatch), "matches"
+               print("Problem: got", len(IMatch), "matches")
             hasMatch[iObj] = True
             iMatch = IMatch[0]
             #print iObj, minDiff
@@ -545,14 +579,14 @@ class Catalog(object):
 
 
       with sharedmem.MapReduce(np=nProc) as pool:
-         IMatch = np.array(pool.map(matchObj, range(self.nObj)))
+         IMatch = np.array(pool.map(matchObj, list(range(self.nObj))))
          #IMatch = np.array(pool.map(matchObj, range(500)))
 
 
-      I0Match = np.where(IMatch<>-1.)[0]
-      print "First catalog has", self.nObj, "objects"
-      print "Second catalog has", newCat.nObj, "objects"
-      print "Intersection has", len(I0Match), "objects"
+      I0Match = np.where(IMatch!=-1.)[0]
+      print("First catalog has", self.nObj, "objects")
+      print("Second catalog has", newCat.nObj, "objects")
+      print("Intersection has", len(I0Match), "objects")
 
 
       self.nObj = len(I0Match)
@@ -736,14 +770,14 @@ class Catalog(object):
    ##################################################################################
    
    def printProperties(self):
-      print "Catalog: "+self.nameLong
-      print "Number of objects = "+str(self.nObj)
-      print "with mass: "+str(np.sum(self.hasM))+", i.e. fraction "+str(np.sum(self.hasM)/self.nObj)
-      print "Z: mean = "+str(np.mean(self.Z))+", median = "+str(np.median(self.Z))
+      print("Catalog: "+self.nameLong)
+      print("Number of objects = "+str(self.nObj))
+      print("with mass: "+str(np.sum(self.hasM))+", i.e. fraction "+str(np.sum(self.hasM)/self.nObj))
+      print("Z: mean = "+str(np.mean(self.Z))+", median = "+str(np.median(self.Z)))
       m = self.Mstellar[self.hasM==1]
-      print "M_star [M_sun]: mean = "+str(np.mean(m))+", median = "+str(np.median(m))
+      print("M_star [M_sun]: mean = "+str(np.mean(m))+", median = "+str(np.median(m)))
       m = self.Mvir[self.hasM==1]
-      print "M_vir [M_sun]: mean = "+str(np.mean(m))+", median = "+str(np.median(m))
+      print("M_vir [M_sun]: mean = "+str(np.mean(m))+", median = "+str(np.median(m)))
    
 
 
@@ -757,12 +791,12 @@ class Catalog(object):
       # interpolate RMS 1d velocity for speed
       f = lambda z: self.U.v3dRms(0., z, W3d_sth) / np.sqrt(3.)
       Z = np.linspace(0., 1., 201)
-      V1dRms = np.array(map(f, Z))
+      V1dRms = np.array(list(map(f, Z)))
       f = interp1d(Z, V1dRms, kind='linear', bounds_error=False, fill_value='extrapolate')
       
-      print "Expected v1d_rms = "+str(np.mean(np.array(map(f, self.Z))))+" km/s"
-      print "Expected v1d_rms(z=z_mean) = "+str(f(np.mean(self.Z)))+" km/s"
-      print "RMS v_r, v_theta, v_phi = "+str(np.std(self.vR))+", "+str(np.std(self.vTheta))+", "+str(np.std(self.vPhi))+" km/s"
+      print("Expected v1d_rms = "+str(np.mean(np.array(list(map(f, self.Z)))))+" km/s")
+      print("Expected v1d_rms(z=z_mean) = "+str(f(np.mean(self.Z)))+" km/s")
+      print("RMS v_r, v_theta, v_phi = "+str(np.std(self.vR))+", "+str(np.std(self.vTheta))+", "+str(np.std(self.vPhi))+" km/s")
 
 
 
@@ -804,15 +838,15 @@ class Catalog(object):
       
       # comoving virial radius
       # need masses in Msun/h
-      Par = zip(self.Mvir*self.U.bg.h, self.Z)
+      Par = list(zip(self.Mvir*self.U.bg.h, self.Z))
       f = lambda par: self.U.frvir(par[0], par[1])   # in: Msun/h, out: Mpc/h
-      Rvir = np.array(map(f, Par))  # in Mpc/h
+      Rvir = np.array(list(map(f, Par)))  # in Mpc/h
       #Rvir /= self.U.bg.h  # Mpc
       path = self.pathFig+"/hist_rvir.pdf"
       myHistogram(Rvir/self.U.bg.h, nBins=71, path=path, nameLatex=r'$R_\text{vir}$ [Mpc]', semilogx=True, semilogy=True)
       
       # virial angular radius
-      Chi = np.array(map(self.U.bg.comoving_distance, self.Z)) # [Mpc/h]
+      Chi = np.array(list(map(self.U.bg.comoving_distance, self.Z))) # [Mpc/h]
       Thetavir = Rvir / Chi   # [rad]
       path = self.pathFig+"/hist_thetavir.pdf"
       x = Thetavir * (180.*60./np.pi)  # [arcmin]
@@ -932,7 +966,7 @@ class Catalog(object):
       has no observable impact there.
       Assumes that carMap has shape [nX, nY], ie it is not a T,Q,U map, just a T map.
       """
-      print "- Generate mock maps"
+      print("- Generate mock maps")
       tStart = time()
       # create empty maps
       countDirac = carMap.copy()
@@ -946,7 +980,7 @@ class Catalog(object):
       for iObj in range(self.nObj):
 #      for iObj in range(10):
          if iObj%100000==0:
-            print "    -", iObj
+            print("    -", iObj)
          # object coordinates [deg]
          ra = self.RA[iObj]
          dec = self.DEC[iObj]
@@ -955,8 +989,8 @@ class Catalog(object):
          # find pixel indices (float) corresponding to ra, dec
          iY, iX = enmap.sky2pix(countDirac.shape, countDirac.wcs, sourcecoord, safe=True, corner=False)
          if test:
-            print 'ra, dec =', ra, dec, iY, iX
-            print countDirac.shape
+            print('ra, dec =', ra, dec, iY, iX)
+            print(countDirac.shape)
          # Check that the object is within the map boundaries
          # before rounding the indices
          if iX>=0 and iX<=(countDirac.shape[1]-1) and iY>=0 and iY<=(countDirac.shape[0]-1):
@@ -965,18 +999,18 @@ class Catalog(object):
              jY = np.int(round(iY))
              jX = np.int(round(iX))
              if test:
-               print("Object "+str(iObj)+" overlaps")
+               print(("Object "+str(iObj)+" overlaps"))
              # fill the pixel
              countDirac[jY, jX] = 1.
              velDirac[jY, jX] = - self.vR[iObj] / 3.e5   # v_r/c  [dimless]
              # check that I filled the right pixel
-             if countDirac.at(sourcecoord, prefilter=False, mask_nan=False, order=0)<>1:
-                print "Filled the wrong pixel for  object", iObj
-                print "wanted ra, dec=", ra, dec # [deg]
-                print "chosen closest ra, dec=", posmap[::-1, jY, jX] * 180./np.pi  # [deg]
-                print "difference in arcmin=", (posmap[::-1, jY, jX] * 180./np.pi - np.array([ra, dec]))*60.  # residual in [arcmin]
-                print "ra index=", iX, jX, np.int(np.round(iX)), countDirac.shape[1]
-                print "dec index=", iY, jY, np.int(np.round(iY)), countDirac.shape[0]
+             if countDirac.at(sourcecoord, prefilter=False, mask_nan=False, order=0)!=1:
+                print("Filled the wrong pixel for  object", iObj)
+                print("wanted ra, dec=", ra, dec) # [deg]
+                print("chosen closest ra, dec=", posmap[::-1, jY, jX] * 180./np.pi)  # [deg]
+                print("difference in arcmin=", (posmap[::-1, jY, jX] * 180./np.pi - np.array([ra, dec]))*60.)  # residual in [arcmin]
+                print("ra index=", iX, jX, np.int(np.round(iX)), countDirac.shape[1])
+                print("dec index=", iY, jY, np.int(np.round(iY)), countDirac.shape[0])
 
              # normalize to integrate to 1 over angles in [muK*arcmin^2]
              countDirac[jY, jX] /= pixSizeMap[jY, jX] * (180.*60./np.pi)**2 # divide by pixel area in arcmin^2 
@@ -995,9 +1029,9 @@ class Catalog(object):
       velDirac /= np.std(self.vR / 3.e5)
 
       # save the maps
-      print "Saving maps to:"
-      print self.pathOut+"mock_count_dirac_car.fits"
-      print self.pathOut+"mock_vel_dirac_car.fits"
+      print("Saving maps to:")
+      print(self.pathOut+"mock_count_dirac_car.fits")
+      print(self.pathOut+"mock_vel_dirac_car.fits")
       enmap.write_map(self.pathOut+"mock_count_dirac_car.fits", countDirac)
       enmap.write_map(self.pathOut+"mock_vel_dirac_car.fits", velDirac)
       
@@ -1038,14 +1072,14 @@ class Catalog(object):
          # and will be easily comparable to the theory curve.
          velGauss /= np.std(self.vR / 3.e5)
          # save the maps
-         print "Saving maps to:"
-         print self.pathOut+"mock_count_gauss_car.fits"
-         print self.pathOut+"mock_vel_gauss_car.fits"
+         print("Saving maps to:")
+         print(self.pathOut+"mock_count_gauss_car.fits")
+         print(self.pathOut+"mock_vel_gauss_car.fits")
          enmap.write_map(self.pathOut+"mock_count_gauss_car.fits", countGauss)
          enmap.write_map(self.pathOut+"mock_vel_gauss_car.fits", velGauss)
 
       tStop = time()
-      print("Took "+str((tStop-tStart)/60.)+" min")
+      print(("Took "+str((tStop-tStart)/60.)+" min"))
 
 
 
