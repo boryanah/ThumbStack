@@ -981,7 +981,7 @@ class ThumbStack(object):
       else:
          # define chunks
          nChunk = ts.nProc
-         chunkSize = ts.Catalog.nObj / nChunk
+         chunkSize = int(ts.Catalog.nObj / nChunk)
          # list of indices for each of the nChunk chunks
          chunkIndices = [list(range(iChunk*chunkSize, (iChunk+1)*chunkSize)) for iChunk in range(nChunk)]
          # make sure not to miss the last few objects:
@@ -990,7 +990,7 @@ class ThumbStack(object):
 
          # select weights for a typical aperture size (not the smallest, not the largest)
          #iRAp0 = ts.nRAp / 2
-         iRAp0 = ts.nRAp / 4
+         iRAp0 = int(ts.nRAp / 4)
          norm = norm[iRAp0]
          # need to link object number with weight,
          # despite the mask
