@@ -6,7 +6,7 @@ from headers import *
 class ThumbStack(object):
 
 #   def __init__(self, U, Catalog, pathMap="", pathMask="", pathHit="", name="test", nameLong=None, save=False, nProc=1):
-   def __init__(self, U, Catalog, cmbMap, cmbMask, cmbHit=None, name="test", nameLong=None, save=False, nProc=1, filterTypes='diskring', doStackedMap=False, doMBins=False, doVShuffle=False, doBootstrap=False, cmbNu=150.e9, cmbUnitLatex=r'$\mu$K', output_dir="/pscratch/sd/b/boryanah/ACTxDESI/output/thumbstack/"):
+   def __init__(self, U, Catalog, cmbMap, cmbMask, cmbHit=None, name="test", nameLong=None, save=False, nProc=1, filterTypes='diskring', doStackedMap=False, doMBins=False, doVShuffle=False, doBootstrap=False, cmbNu=150.e9, cmbUnitLatex=r'$\mu$K', output_dir="/pscratch/sd/b/boryanah/ACTxDESI/output/thumbstack/", Obs='ksz', wantMF=False, invPowerFunc=None, filterFuncRad=None, apod_pix=20):
       
       self.nProc = nProc
       self.U = U
@@ -28,16 +28,18 @@ class ThumbStack(object):
 
       # aperture photometry filters to implement
       if filterTypes=='diskring':
-         self.filterTypes = np.array(['diskring']) 
+         self.filterTypes = np.array(['diskring'])
+      elif filterTypes=='meanring':
+         self.filterTypes = np.array(['meanring']) 
       elif filterTypes=='disk':
          self.filterTypes = np.array(['disk'])
       elif filterTypes=='ring':
          self.filterTypes = np.array(['ring'])
       elif filterTypes=='all':
-         self.filterTypes = np.array(['diskring', 'disk', 'ring'])
+         self.filterTypes = np.array(['diskring', 'disk', 'ring', 'meanring'])
 
       """
-      # estimators (ksz, tsz) and weightings (uniform, hit, var, ...)
+      # ORIGINAL: estimators (ksz, tsz) and weightings (uniform, hit, var, ...)
       # for stacked profiles, bootstrap cov and v-shuffle cov
       if self.cmbHit is not None:
          self.Est = ['tsz_uniformweight', 'tsz_varweight']   #['tsz_uniformweight', 'tsz_hitweight', 'tsz_varweight', 'ksz_uniformweight', 'ksz_hitweight', 'ksz_varweight', 'ksz_massvarweight']
@@ -53,16 +55,16 @@ class ThumbStack(object):
       # estimators (ksz, tsz) and weightings (uniform, hit, var, ...)
       # for stacked profiles, bootstrap cov and v-shuffle cov
       if self.cmbHit is not None:
-         self.Est = ['ksz_uniformweight', 'ksz_varweight']   #['tsz_uniformweight', 'tsz_hitweight', 'tsz_varweight', 'ksz_uniformweight', 'ksz_hitweight', 'ksz_varweight', 'ksz_massvarweight']
-         self.EstBootstrap = ['ksz_uniformweight', 'ksz_varweight']  #['tsz_varweight', 'ksz_varweight']
-         self.EstVShuffle = []   #['ksz_varweight']
-         self.EstMBins = ['ksz_uniformweight', 'ksz_varweight']# ['tsz_varweight', 'ksz_varweight']
+         self.Est = [f'{Obs}_uniformweight', f'{Obs}_varweight']
+         self.EstBootstrap = [f'{Obs}_uniformweight', f'{Obs}_varweight']
+         self.EstVShuffle = []
+         self.EstMBins = [f'{Obs}_uniformweight', f'{Obs}_varweight']
       else:
-         self.Est = ['ksz_uniformweight'] #['tsz_uniformweight', 'ksz_uniformweight', 'ksz_massvarweight']
-         self.EstBootstrap = ['ksz_uniformweight'] #['tsz_uniformweight', 'ksz_uniformweight']
-         self.EstVShuffle = []   #['ksz_uniformweight']
-         self.EstMBins = ['ksz_uniformweight'] #['ksz_uniformweight'] #['tsz_uniformweight', 'ksz_uniformweight']
-      
+         self.Est = [f'{Obs}_uniformweight']
+         self.EstBootstrap = [f'{Obs}_uniformweight']
+         self.EstVShuffle = []  
+         self.EstMBins = [f'{Obs}_uniformweight']
+            
       # resolution of the cutout maps to be extracted
       self.resCutoutArcmin = 0.25   # [arcmin]
       # projection of the cutout maps
@@ -96,7 +98,7 @@ class ThumbStack(object):
 
       print("- Thumbstack: "+str(self.name))
       
-      self.loadAPRadii()
+      self.loadAPRadii(filterTypes)
       self.loadMMaxBins() # B.H. not using this
       print("loaded mmax")
       
@@ -104,6 +106,15 @@ class ThumbStack(object):
          self.saveOverlapFlag(nProc=self.nProc)
       self.loadOverlapFlag()
       print("overlap")
+
+      if wantMF:
+         assert invPowerFunc is not None
+         assert filterFuncRad is not None
+         self.invPowerMap = self.getInvPowerMap(invPowerFunc)
+         self.filterMap = self.getFilterMap(filterFuncRad)
+         self.apod_pix = apod_pix
+         self.saveMatchedFiltering(nProc=self.nProc)
+         return
       
       if save:
          self.saveFiltering(nProc=self.nProc)
@@ -143,20 +154,28 @@ class ThumbStack(object):
    ##################################################################################
    ##################################################################################
    
-   def loadAPRadii(self):
-      # radii to use for AP filter: comoving Mpc/h
-      self.nRAp = 9 #30 #9  #4
-      
-      # Aperture radii in Mpc/h
-      #self.rApMinMpch = 1.
-      #self.rApMaxMpch = 5
-      #self.RApMpch = np.linspace(self.rApMinMpch, self.rApMaxMpch, self.nRAp)
-      
-      # Aperture radii in arcmin
-      self.rApMinArcmin = 1.  #0.1   #1.  # 1.
-      self.rApMaxArcmin = 6.  #6.  #6.  # 4.
-      self.RApArcmin = np.linspace(self.rApMinArcmin, self.rApMaxArcmin, self.nRAp)
+   def loadAPRadii(self, filterTypes=np.array(['diskring'])):
 
+      if 'diskring' in filterTypes:
+         # radii to use for AP filter: comoving Mpc/h
+         self.nRAp = 9 #30 #9  #4
+
+         # Aperture radii in Mpc/h
+         #self.rApMinMpch = 1.
+         #self.rApMaxMpch = 5
+         #self.RApMpch = np.linspace(self.rApMinMpch, self.rApMaxMpch, self.nRAp)
+      
+         # Aperture radii in arcmin
+         self.rApMinArcmin = 1.  #0.1   #1.  # 1.
+         self.rApMaxArcmin = 6.  #6.  #6.  # 4.
+         self.nRAp = 9
+         self.RApArcmin = np.linspace(self.rApMinArcmin, self.rApMaxArcmin, self.nRAp)
+      elif 'meanring' in filterTypes:
+         self.nRAp = 9
+         self.rApMinArcmin = 0.  #0.1   #1.  # 1.
+         self.rApMaxArcmin = 10.  #6.  #6.  # 4.
+         self.RApArcminBins = np.linspace(self.rApMinArcmin, self.rApMaxArcmin, self.nRAp+1)
+         self.RApArcmin = 0.5*(self.RApArcminBins[1:]+self.RApArcminBins[:-1])
 
    def cutoutGeometry(self, test=False):
       '''Create enmap for the cutouts to be extracted.
@@ -247,6 +266,41 @@ class ThumbStack(object):
    
    def loadOverlapFlag(self):
       self.overlapFlag = np.genfromtxt(self.pathOut+"/overlap_flag.txt")
+   
+   
+   ##################################################################################
+
+   def getFilterMap(self, filterFuncRad):
+      # get a stamp
+      stampMap = self.cutoutGeometry()
+      modrmap = stampMap.modrmap()
+
+      # translate into 2D map
+      emap = filterFuncRad(modrmap)
+      emap = np.nan_to_num(emap)
+
+      # fourier transform
+      umap = modrmap.copy()
+      umap[:, :] = emap[:, :]
+      filterMap = enmap.fft(umap, normalize='phys')
+      print("rmap arc", modrmap.min()*180*60/np.pi, modrmap.max()*180*60/np.pi)
+      print("filter", filterMap)
+      print("filter", np.sum(filterMap))
+      return filterMap
+
+   def getInvPowerMap(self, invPowerFunc):
+      # get a stamp
+      stampMap = self.cutoutGeometry()
+      modlmap = stampMap.modlmap()
+      np.save("modlmap.npy", modlmap)
+      print("lmap", modlmap.min(), modlmap.max())
+      
+      # translate into 2D map
+      invPowerMap = invPowerFunc(modlmap)
+      invPowerMap = np.nan_to_num(invPowerMap)
+      print("invp", invPowerMap)
+      print("invp", np.sum(invPowerMap))
+      return invPowerMap
    
    
    ##################################################################################
@@ -351,6 +405,56 @@ class ThumbStack(object):
 
    ##################################################################################
 
+   def matchedFilter(self, opos, invPowerMap, filterMap, stampMap, stampMask=None, stampHit=None, apod_pix=20): 
+      # coordinates of the square map in radians
+      # zero is at the center of the map
+      # output map position [{dec,ra},ny,nx]
+      dec = opos[0,:,:]
+      ra = opos[1,:,:]
+      radius = np.sqrt(ra**2 + dec**2)
+      # exact angular area of a pixel [sr] (same for all pixels in CEA, not CAR)
+      pixArea = ra.area() / len(ra.flatten())
+
+      # apodizing
+      if stampMask is None:
+         stampMask = enmap.apod(stampMap*0+1., apod_pix) # pass an array of ones; same shape and wcs as imap
+      else:
+         if np.isclose(np.sum(stampMask), np.product(stampMask.shape)): # todo: make pretty np.all(np.isclose(stampMask, 1.))
+            stampMask = enmap.apod(stampMap*0+1., apod_pix) # pass an array of ones; same shape and wcs as imap
+         else:
+            # convert pixel size to canvas size
+            #h, w = stampMap.pixshape() # h, w in radians
+            #width = apod_pix*((h+w)*0.5)
+            #stampMask = enmap.apod_mask(stampMask, width=width, edge=True)
+
+            # I feel like this line is unnecessary unless you messed up the mas
+            #stampMask = imap.copy()*0+stampMask 
+            stampMask *= enmap.apod(stampMap*0+1., apod_pix)
+
+      # apodize and take fft (this seems the most physical)
+      mean_stampMap = np.sum(stampMap*stampMask)/np.sum(stampMask)
+      stampMap = stampMap/mean_stampMap - 1. # this is just the fluctuations
+      stampMap_masked = (stampMap*stampMask + 1)*mean_stampMap 
+      fourierMap = enmap.fft(stampMap_masked, normalize="phys", nthread=1) # nthread important when running in parallel
+      # can you run into some issues?? what are ways of testing this; do we get nans?
+
+      """
+      # flatten all Fourier maps
+      fmap = fmap.flatten()
+      kmap = kmap.flatten()
+      inv_C_power = inv_C_power.flatten()
+      """
+
+      # compute filter C^-1 map / filter C^-1 filter
+      #a = np.dot(fmap, np.dot(inv_C_power, kmap))
+      #norm = np.dot(fmap, np.dot(inv_C_power, fmap))
+      choice = stampMap.modlmap() < 15000
+      a = np.sum((np.conj(filterMap)*invPowerMap*fourierMap)[choice])
+      norm = np.sum((np.conj(filterMap)*invPowerMap*filterMap)[choice])
+      a /= norm
+      a = np.real(a)
+      norm = np.real(norm)
+      return a, 1./norm
 
    def aperturePhotometryFilter(self, opos, stampMap, stampMask, stampHit, r0, r1, filterType='diskring',  test=False):
       """Apply an AP filter (disk minus ring) to a stamp map:
@@ -498,10 +602,16 @@ class ThumbStack(object):
                ## convert to radians at the given redshift
                #r0 = rApMpch / self.U.bg.comoving_transverse_distance(z) # rad
 
-               # Disk radius in rad
-               r0 = self.RApArcmin[iRAp] / 60. * np.pi/180.
-               # choose an equal area AP filter
-               r1 = r0 * np.sqrt(2.)
+               if filterType == "meanring":
+                  # Disk radius in rad
+                  r0 = self.RApArcminBins[iRAp] / 60. * np.pi/180.
+                  # choose an equal area AP filter
+                  r1 = self.RApArcminBins[iRAp+1] / 60. * np.pi/180.
+               else:
+                  # Disk radius in rad
+                  r0 = self.RApArcmin[iRAp] / 60. * np.pi/180.
+                  # choose an equal area AP filter
+                  r1 = r0 * np.sqrt(2.)
                
                # perform the filtering
                filtMap[filterType][iRAp], filtMask[filterType][iRAp], filtHitNoiseStdDev[filterType][iRAp], filtArea[filterType][iRAp] = self.aperturePhotometryFilter(opos, stampMap, stampMask, stampHit, r0, r1, filterType=filterType, test=test)
@@ -519,7 +629,60 @@ class ThumbStack(object):
 
       return filtMap, filtMask, filtHitNoiseStdDev, filtArea
 
+   def analyzeObjectWithMatchedFiltering(self, iObj, test=False):
+      '''Analysis to be done for each object: extract cutout map once,
+      then apply all aperture photometry filters requested on it.
+      Returns:
+      filtMap: [map unit * sr]
+      filtMask: [mask unit * sr]
+      filtHitNoiseStdDev: [1/sqrt(hit unit) * sr], ie [std dev * sr] if [hit map] = inverse var
+      diskArea: [sr]
+      '''
+      
+      if iObj%10000==0:
+         print("- analyze object", iObj)      
+      
+      # only do the analysis if the object overlaps with the CMB map
+      if self.overlapFlag[iObj]:
+         # Object coordinates
+         ra = self.Catalog.RA[iObj]   # in deg
+         dec = self.Catalog.DEC[iObj] # in deg
+         z = self.Catalog.Z[iObj]
+         # choose postage stamp size to fit the largest ring
+         dArcmin = np.ceil(2. * self.rApMaxArcmin * np.sqrt(2.))
+         dDeg = dArcmin / 60.
+         # extract postage stamp around it
+         opos, stampMap, stampMask, stampHit = self.extractStamp(ra, dec, test=test)
 
+         # perform the filtering
+         amp, cov = self.matchedFilter(opos, self.invPowerMap, self.filterMap, stampMap, stampMask, stampHit, self.apod_pix)
+         return amp, cov
+      
+      return 0., 0.
+
+
+
+   def saveMatchedFiltering(self, nProc=1):
+      
+      print("Evaluate all filters on all objects")
+      # loop over all objects in catalog
+      filterType = "matched"
+      tStart = time()
+      with sharedmem.MapReduce(np=nProc) as pool:
+         f = lambda iObj: self.analyzeObjectWithMatchedFiltering(iObj, test=False)
+         result = np.array(pool.map(f, list(range(self.Catalog.nObj))))
+      tStop = time()
+      print("took", (tStop-tStart)/60., "min")
+      
+      # tuks
+      print(self.Catalog.nObj, result.shape)
+      
+      # unpack and save to file
+      amp = np.array([result[iObj,0] for iObj in range(self.Catalog.nObj)])
+      cov = np.array([result[iObj,1] for iObj in range(self.Catalog.nObj)])
+
+      np.savetxt(self.pathOut+"/"+filterType+"_amp.txt", amp)
+      np.savetxt(self.pathOut+"/"+filterType+"_cov.txt", cov)
 
    def saveFiltering(self, nProc=1):
       
@@ -867,7 +1030,7 @@ class ThumbStack(object):
  #     tMean = tMean[mask,:]
       # -v/c [dimless]
       v = -ts.Catalog.vR[mask] / 3.e5
-      v -= np.mean(v) # tuks
+      v -= np.mean(v) 
 
 #      # expected sigma_{v_{true}}, for the normalization
 #      #print "computing v1d norm"
@@ -932,7 +1095,12 @@ class ThumbStack(object):
       elif est=='tsz_varweight':
          weights = 1./s2Full
          norm = 1./np.sum(weights, axis=0)
-
+         
+      # tau: uniform weighting
+      elif est=='tau_uniformweight': 
+         weights = np.sign(v[:, np.newaxis]) * np.ones_like(s2Hit) # S[T_l]
+         norm = 1./(np.mean(np.abs(v)) * np.sum(np.abs(weights), axis=0)) # 1/(<|T_l|> N)
+         
       # kSZ: uniform weighting
       elif est=='ksz_uniformweight':
          # remove mean temperature
@@ -2032,6 +2200,8 @@ class ThumbStack(object):
       elif filterType=='disk':
          result = 1. - np.exp(-0.5*self.RApArcmin**2/sigma_cluster**2)
       elif filterType=='ring':
+         result = np.exp(-0.5*self.RApArcmin**2/sigma_cluster**2) - np.exp(-0.5*(self.RApArcmin*np.sqrt(2.))**2/sigma_cluster**2)
+      elif filterType=='meanring':
          result = np.exp(-0.5*self.RApArcmin**2/sigma_cluster**2) - np.exp(-0.5*(self.RApArcmin*np.sqrt(2.))**2/sigma_cluster**2)
       return result
 

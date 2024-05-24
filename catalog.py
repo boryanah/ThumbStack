@@ -176,7 +176,7 @@ class Catalog(object):
          self.Mvir[~self.hasM.astype('bool')] = meanMvir
       # if no object has a mass, make a random guess, rather than keeping 0
       else:
-         self.Mstellar = 2.6e11   # random guess
+         #self.Mstellar = 2.6e11   # random guess is this nonsense written by me?
          self.Mvir = self.MassConversion.fmStarTomVir(2.6e11)
 
 
@@ -341,9 +341,9 @@ class Catalog(object):
       # velocity in cartesian coordinates
       self.vX = data[:nObj,12]   #[km/s]
       self.vY = data[:nObj,13]   #[km/s]
-      self.vZ = data[:nObj,14]   #[km/s]
       #
       """
+      self.vZ = data[:nObj,14]   #[km/s] # THIS IS ACTUALLY THE T ON LARGE SCALES B.H.
       # velocity in spherical coordinates,
       # from catalog of spherical displacements
       self.vR = data[:nObj,15]  # [km/s]   from spherical catalog, >0 away from us

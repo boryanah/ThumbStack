@@ -35,8 +35,8 @@ class MassConversionKravtsov14(object):
       self.mVir = np.logspace(np.log10(1.e9), np.log10(1.e18), 501, 10.) # [M_sun]
       #self.mStar = np.array(map(self.fmStar, self.mVir))  # [M_sun]
       self.mStar = self.fmStar(self.mVir) # [M_sun]
-      self.fmStarTomVir = interp1d(self.mStar, self.mVir, kind='cubic', bounds_error=True, fill_value=0.)
-      self.fmVirTomStar = interp1d(self.mVir, self.mStar, kind='cubic', bounds_error=True, fill_value=0.)
+      self.fmStarTomVir = interp1d(self.mStar, self.mVir, kind='cubic', bounds_error=False, fill_value=(self.mVir.min(), self.mVir.max()))
+      self.fmVirTomStar = interp1d(self.mVir, self.mStar, kind='cubic', bounds_error=False, fill_value=(self.mStar.min(), self.mStar.max()))
 
 
    def f(self, x):
