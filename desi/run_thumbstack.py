@@ -97,7 +97,7 @@ elif "lensing" in pathMap:
     Obs = 'tsz'
 else:
     filterType = "diskring"
-    Obs = 'tau'#'ksz' # TESSTing
+    Obs = 'ksz'
 
     
 # Testing
@@ -143,10 +143,10 @@ if cat_type == "main":
 elif cat_type == "extended":
     cat_fn = f"extended_catalog{mix_str}{cat_dr_str}{cat_foot_str}{recon_bin_str}{sigmaz_str}{only_str}.txt" 
 elif cat_type == "bgs":
-    cat_fn = f"BGS_BRIGHT-21.5.txt" # spec # i think smolest? # TESTING
+    #cat_fn = f"BGS_BRIGHT-21.5.txt" # spec # i think smolest? # TESTING
     #cat_fn = f"BGS_BRIGHT.txt" # new
     #cat_fn = f"BGS_BRIGHT_pz.txt" # newest0
-    #cat_fn = f"BGS_BRIGHT_pz_logm10.5.txt" # newestest DEFAULT
+    cat_fn = f"BGS_BRIGHT_pz_logm10.5.txt" # newestest DEFAULT og
     tracer = cat_fn.split(".txt")[0]
 print(cat_fn)
 
