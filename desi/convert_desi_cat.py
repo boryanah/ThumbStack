@@ -45,6 +45,9 @@ python convert_desi_cat.py 1 0 dr9_extended_lrg_pzbins.fits
 python convert_desi_cat.py 1 0 dr9_lrg_pzbins-dr10_pz.fits
 python convert_desi_cat.py 1 0 dr9_extended_lrg_pzbins-dr10_pz.fits
 
+python convert_desi_cat.py 1 0 dr9_extended_lrg_pzbins.fits f150
+python convert_desi_cat.py 1 0 dr9_extended_lrg_pzbins.fits f090
+
 Boryana, what the actual fuck. This code makes absolutely no sense....!!!!!!!!!!!!!!!!!!
 """
 
@@ -61,12 +64,20 @@ gal_fn = sys.argv[3]
 min_nobs = 1 #2 # Rongpu says 1 it's ok (DR9 we used 2)
 max_ebv = 0.15
 max_stardens = 2500
-max_sigmaz = 0. #0.05 #0.035
+max_sigmaz = 0. #0.05 #0. #0.05 #0.035
 remove_islands = True
 apply_lrg_mask = True
+skip_tidal = True # TESTING!!!!!!!!!
 
 # read CMB map
-pathMap = '/pscratch/sd/b/boryanah/ACTxDESI/ACT/hilc_fullRes_TT_17000.fits'
+pathMap = '/pscratch/sd/b/boryanah/ACTxDESI/ACT/hilc_fullRes_TT_17000.fits'; freq_str = ""
+if len(sys.argv) > 4:
+    print(sys.argv[4])
+    freq_str = f"_{sys.argv[4]}"
+    if sys.argv[4] == "f090":
+        pathMap = '/pscratch/sd/b/boryanah/ACTxDESI/ACT/act_planck_dr5.01_s08s18_AA_f090_night_map_srcfree_masked.fits' # DR5 f090
+    elif sys.argv[4] == "f150":
+        pathMap = '/pscratch/sd/b/boryanah/ACTxDESI/ACT/act_planck_dr5.01_s08s18_AA_f150_night_map_srcfree_masked.fits' # DR5 f150
 cmb_map = enmap.read_map(pathMap.split('.fits')[0]+"_large_tau_screening.fits")
 
 # mask strings
@@ -119,12 +130,18 @@ sr = 12.5
 convention = "recsym"
 rectype = "MG"
 
+doRandomPositions = False
+if doRandomPositions:
+    random_str = "_randompos"
+else:
+    random_str = ""
+
 # filename to save to
 desi_dir = Path("/pscratch/sd/b/boryanah/ACTxDESI/DESI/")
 if "extended" in gal_fn:
-    save_fn = f"extended_catalog{mix_str}{version_str}{cat_foot_str}{recon_bin_str}{sigmaz_str}{only_str}.txt"
+    save_fn = f"extended_catalog{mix_str}{version_str}{cat_foot_str}{recon_bin_str}{sigmaz_str}{only_str}{random_str}{freq_str}.txt"
 else:
-    save_fn = f"catalog{mix_str}{version_str}{cat_foot_str}{recon_bin_str}{sigmaz_str}{only_str}.txt"
+    save_fn = f"catalog{mix_str}{version_str}{cat_foot_str}{recon_bin_str}{sigmaz_str}{only_str}{random_str}{freq_str}.txt"
 print(save_fn)
 
 # DESI catalog location
@@ -401,13 +418,69 @@ for pz_bin in bins:
             mask_foot = cat_pz_bin['PHOTSYS'] == "S"
         df2 = df2[mask_foot]
 
+    # perturb positions by +/- 5 deg
+    if doRandomPositions:
+        df2['DEC'] += (np.random.rand(len(df2['RA']))-0.5)*10.
+        df2['DEC'][df2['DEC'] > 90.] -= 90.
+        df2['DEC'][df2['DEC'] <= -90.] += 90.
+        df2['RA'] += (np.random.rand(len(df2['RA']))-0.5)*10.
+        df2['RA'] %= 360.
+        
     # interpolate the map to the given sky coordinates
     sourcecoord = np.array([df2['DEC'], df2['RA']]) * np.pi/180.   # convert from degrees to radians
 
-    # use nearest neighbor interpolation # tuks cmb_map
+    # use nearest neighbor interpolation # cmb_map
     df2['vZ'] = cmb_map.at(sourcecoord, prefilter=False, mask_nan=False, order=0) # note we are overwriting
     print("number of galaxies in bin", sourcecoord.shape[1])
     del sourcecoord; gc.collect()
+    print(df2['vZ'][df2['vZ'] != 0.][:10])
+    print(np.std(df2['vZ'][df2['vZ'] != 0.]))
+    
+    # TESTING!!!!!!!! # I THINK TECHNICALLY SHOULD BE DONE WITHIN THE FORLOOP
+    # could be load evectors 
+    """
+    from cosmoprimo.fiducial import Planck2018FullFlatLCDM, DESI
+    from pyrecon import  utils
+    cosmo = DESI()
+    Position = utils.sky_to_cartesian(cosmo.comoving_radial_distance(Z), RA, DEC)
+
+    from cosmoprimo.fiducial import Planck2018FullFlatLCDM, DESI
+    cosmo = DESI()
+    position = unit_los_pz_bin*cosmo.comoving_radial_distance(df2['Z']) # should be Mpc and doesn't need to use cosmoprimo
+    recon_fn = f"eigenvals_eigenvecs_{gal_fn.split('.fits')[0]}_{rand_fn.split('.fits')[0]}{mask_str}_R{sr:.2f}_nmesh{nmesh:d}_{convention}_{rectype}{pz_str}{foot_str}.npz"
+    data = np.load(recon_dir / "recon" / recon_fn)
+    data = np.load(fn)
+    evals = data['evals']
+    evecs = data['evecs']
+    boxcenter_cellunits = data['boxcenter_cellunits']
+    cellsize = boxsize/(nmesh-1)
+    position /= cellsize
+    position -= boxcenter_cellunits
+    position = position.astype(np.int64)
+    i_argmin = np.argmin(evals, axis=3)
+
+    @njit
+    def cross(a, b):
+        c = np.array([a[1]*b[2] - a[2]*b[1],
+                      a[2]*b[0] - a[0]*b[2],
+                      a[0]*b[1] - a[1]*b[0]])
+        return c
+
+    #e3 = np.array([0., 0., 0.], dtype=np.float32)
+    for i in range(position.shape[0]):
+        e3 = evecs[position[i, 0], position[i, 1], position[i, 2], :, i_argmin[position[i, 0], position[i, 1], position[i, 2]]]
+    """
+
+    if not skip_tidal:
+        #recon_fn = f"tidal_field_2D_{gal_fn.split('.fits')[0]}_{rand_fn.split('.fits')[0]}{mask_str}_R0.30_nmesh512{pz_str}{foot_str}.npz"
+        recon_fn = f"tidal_field_2D_{gal_fn.split('.fits')[0]}_{rand_fn.split('.fits')[0]}{mask_str}_R0.06_nmesh1024{pz_str}{foot_str}.npz"
+        print(str(recon_dir / "recon" / recon_fn))
+        data = np.load(recon_dir / "recon" / recon_fn)
+        ca = data['ca'] # mirror? need to test
+        sa = data['sa'] 
+        assert len(ca) == len(sa) == len(df2['RA'])
+        df2['vX'] = ca # cos alpha (e_th, e2)
+        df2['vY'] = sa # sin alpha (e_th, e2) --> e2 . (R e_th) = 1, R [[ca -sa], [sa ca]]
     
     # Saving the fits catalogs as txt files
     df2.to_csv(desi_dir / f'DESI_pz{pz_bin:d}/{save_fn}', header=None, index=None, sep=' ', mode='w')

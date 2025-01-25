@@ -37,14 +37,16 @@ tracer = "BGS_BRIGHT_pz"
 #logm_str = "" # og
 logm_str = "_logm10.5" # TESTING
 pz_bin = 1
-save_fn = f"{tracer}{logm_str}.txt"
+smooth = float(sys.argv[1]) # deg
+smooth_str = f"_R{smooth:.2f}" if smooth != 0.06 else ""
+save_fn = f"{tracer}{logm_str}{smooth_str}.txt"
 
 # filenames
 cat_fn = f"/global/cfs/cdirs/desi/users/boryanah/reconstruction_DESI/galaxies/dr9_bgs_basic_remov_isle_nobs1_ebv0.15_stardens2500_sigmaz0.0500{logm_str}.npz"
 recon_fn = f"/global/cfs/cdirs/desi/users/boryanah/reconstruction_DESI/recon/displacements_dr9_bgs_basic_randoms-1-0-4_remov_isle_nobs1_ebv0.15_stardens2500_sigmaz0.0500{logm_str}_R12.50_nmesh1024_recsym_MG.npz"
 
 # read CMB map
-pathMap = '/pscratch/sd/b/boryanah/ACTxDESI/ACT/hilc_fullRes_TT_17000.fits'
+pathMap = '/pscratch/sd/b/boryanah/ACTxDESI/ACT/hilc_fullRes_TT_17000.fits' # NOTE!!!!! YOU DON"T NEED TAU_SCREENING HERE CAUSE IT"S YOU KNOW NOT MEASURABLE
 cmb_map = enmap.read_map(pathMap.split('.fits')[0]+"_large_tau_screening.fits")
 
 # load catalog file
@@ -72,7 +74,7 @@ for col in colnames:
     df2[col] = 0
 
 # set the stellar mass
-df2['MStellar'] = 10.**LOGM #1.e11 
+df2['MStellar'] = 10.**LOGM #1.e11
 del LOGM; gc.collect()
 massConversion = MassConversionKravtsov14()
 
@@ -102,10 +104,30 @@ df2['vPhi'] = Velocity_sphere[:, 1]
 # interpolate the map to the given sky coordinates
 sourcecoord = np.array([df2['DEC'], df2['RA']]) * np.pi/180.   # convert from degrees to radians
 
-# use nearest neighbor interpolation # tuks cmb_map
+# use nearest neighbor interpolation # cmb_map
 df2['vZ'] = cmb_map.at(sourcecoord, prefilter=False, mask_nan=False, order=0) # note we are overwriting
 print("number of galaxies in bin", sourcecoord.shape[1])
 del sourcecoord; gc.collect()
+
+# add the cosmic web information
+if np.isclose(smooth, 0.03):
+    recon_fn = f"/global/cfs/cdirs/desi/users/boryanah/reconstruction_DESI/recon/tidal_field_2D_dr9_bgs_basic_remov_isle_nobs1_ebv0.15_stardens2500_sigmaz0.0500{smooth_str}_nmesh2048.npz"
+else:
+    recon_fn = f"/global/cfs/cdirs/desi/users/boryanah/reconstruction_DESI/recon/tidal_field_2D_dr9_bgs_basic_randoms-1-0-4_remov_isle_nobs1_ebv0.15_stardens2500_sigmaz0.0500{logm_str}{smooth_str}_nmesh1024.npz"
+print(recon_fn)
+data = np.load(recon_fn)
+ca = data['ca']
+sa = data['sa']
+del data; gc.collect()
+if np.isclose(smooth, 0.03) and "10.5" in logm_str:
+    choice = np.load("/global/cfs/cdirs/desi/users/boryanah/reconstruction_DESI/galaxies/dr9_bgs_basic_remov_isle_nobs1_ebv0.15_stardens2500_sigmaz0.0500.npz")['LOGM'] > 10.5
+    ca = ca[choice]
+    sa = sa[choice]
+    del choice; gc.collect()
+    
+assert len(ca) == len(sa) == len(df2['RA'])
+df2['vX'] = ca # cos alpha (e_th, e2)
+df2['vY'] = sa # sin alpha (e_th, e2) --> e2 . (R e_th) = 1, R [[ca -sa], [sa ca]]
 
 # Saving the fits catalogs as txt files
 df2.to_csv(desi_dir / f'DESI_pz{pz_bin:d}/{save_fn}', header=None, index=None, sep=' ', mode='w')

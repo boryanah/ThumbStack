@@ -1,7 +1,6 @@
 import sys
 sys.path.append('/global/homes/b/boryanah/repos/ThumbStack')
 
-
 from importlib import reload
 import universe
 reload(universe)
@@ -45,7 +44,37 @@ python run_thumbstack.py 1 0 main dr9
 python run_thumbstack.py 1 0 extended dr10
 python run_thumbstack.py 1 0 main dr10
 
-python run_thumbstack.py 1 0 bgs na # not applicable
+python run_thumbstack.py 1 0 bgs na f090 # not applicable
+python run_thumbstack.py 1 0 bgs na f150 # not applicable
+python run_thumbstack.py 1 0 bgs_lrg_elg_qso na # not applicable
+python run_thumbstack.py 1 0 des_y6 na # not applicable
+python run_thumbstack.py 1 0 LS na # not applicable
+
+python run_thumbstack.py 1 0 halos lensed
+python run_thumbstack.py 1 0 halos unlensed
+python run_thumbstack.py 1 0 halos lensed_abacus
+python run_thumbstack.py 1 0 halos lensed_abacus_fwhm1.6_noise15.0
+python run_thumbstack.py 1 0 halos lensed_abacus_small_large
+python run_thumbstack.py 1 0 halos lensed_tau_abacus
+python run_thumbstack.py 1 0 halos unlensed_tau_abacus
+python run_thumbstack.py 1 0 halos tau_abacus
+python run_thumbstack.py 1 0 halos lensed_abacus_fwhm1.6
+python run_thumbstack.py 1 0 halos lensed_tau_abacus_fwhm1.6
+python run_thumbstack.py 1 0 halos unlensed_tau_abacus_fwhm1.6
+python run_thumbstack.py 1 0 halos tau_abacus_fwhm1.6
+
+python run_thumbstack.py 1 0 halos lensed_abacus_fwhm2.1
+python run_thumbstack.py 1 0 halos unlensed_tau_abacus_fwhm2.1
+
+python run_thumbstack.py 1 0 halos lensed_abacus_fwhm1.4
+python run_thumbstack.py 1 0 halos lensed_order1_abacus_fwhm1.4
+python run_thumbstack.py 1 0 halos kappa_order1_abacus
+python run_thumbstack.py 1 0 halos unlensed_tau_abacus_fwhm1.4
+python run_thumbstack.py 1 0 halos unlensed_abacus_fwhm1.4
+
+python run_thumbstack.py 1 0 extended dr9 f090
+python run_thumbstack.py 1 0 extended dr9 f150
+python run_thumbstack.py 1 0 extended dr9 kappa
 """
 
 nProc = 256 # this is full
@@ -54,20 +83,106 @@ nProc = 256 # this is full
 
 #version = "dr5"
 version = "dr6"
+#version = "websky"
+freq = "f090"
 if version == "dr5":
-    pathMask = '/pscratch/sd/b/boryanah/ACTxDESI/ACT/wide_mask_GAL070_apod_1.50_deg_wExtended_srcfree.fits' # old mask
-    #pathMask = '/pscratch/sd/b/boryanah/ACTxDESI/ACT/wide_mask_GAL070_apod_1.50_deg_wExtended_srcfree_Will.fits'
-    pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/cmb_night_tot_f090_uncorr_coadd_map.fits" # 2.1 arcmin
+    #pathMask = '/pscratch/sd/b/boryanah/ACTxDESI/ACT/wide_mask_GAL070_apod_1.50_deg_wExtended_srcfree.fits' # old mask
+    pathMask = '/pscratch/sd/b/boryanah/ACTxDESI/ACT/wide_mask_GAL070_apod_1.50_deg_wExtended_srcfree_Will.fits'
+    freq = sys.argv[5]
+    #freq = "f150"
+    #freq = "f090"
+    if freq == "f090":
+        #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/act_planck_dr5.01_s08s18_AA_f090_night_map_srcfree_masked_rebeamed_f150.fits" # 2.1 arcmin
+        #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/act_planck_dr5.01_s08s18_AA_f090_night_map_srcfree_masked.fits" # 2.1 arcmin
+        #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/act_planck_dr5.01_s08s18_AA_f090_night_map_srcfree_masked_rebeamed_f150_small_tau_screening.fits" # 2.1 arcmin
+        pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/act_planck_dr5.01_s08s18_AA_f090_night_map_srcfree_masked_rebeamed_f150_small_large_tau_screening.fits" # 2.1 arcmin
+        pathHit = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/act_dr5.01_s08s18_AA_f090_night_ivar.fits"
+        freq_str = "_f090"
+    elif freq == "f150":
+        #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/act_planck_dr5.01_s08s18_AA_f150_night_map_srcfree_masked.fits" # 1.3 arcmin
+        #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/act_planck_dr5.01_s08s18_AA_f150_night_map_srcfree_masked_small_tau_screening.fits" # 1.3 arcmin
+        pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/act_planck_dr5.01_s08s18_AA_f150_night_map_srcfree_masked_small_large_tau_screening.fits" # 1.3 arcmin
+        pathHit = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/act_dr5.01_s08s18_AA_f150_night_ivar.fits"
+        freq_str = "_f150"
+    #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/cmb_night_tot_f090_uncorr_coadd_map.fits" # 2.1 arcmin
+    pathHit = None # TESTING note we are doing this so the units make sense
     version_str = ""
+    if freq == "f090":
+        version_str_bgs = "_dr5"
+    elif freq == "f150":
+        version_str_bgs = "_dr5_f150"
+        version_str = "_f150"
+    else:
+        print("sths not right"); quit()
 elif version == "dr6":
     pathMask = '/pscratch/sd/b/boryanah/ACTxDESI/ACT/wide_mask_GAL070_apod_1.50_deg_wExtended_srcfree_Will.fits'
-    pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/hilc_fullRes_TT_17000.fits" # 1.6 arcmin # OG
-    #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/hilc_fullRes_TT_17000_kSZ_filter.fits" # 1.6 arcmin # TESTING
-    #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/maps/baseline/kappa_alm_data_act_dr6_lensing_v1_baseline_masked.fits" # TESTING
-    #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/hilc_fullRes_TT_17000_small_tau_screening.fits" # 1.6 arcmin # TESTING
+    if len(sys.argv) > 5:
+        if sys.argv[5] == "kappa":
+            pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/maps/baseline/kappa_alm_data_act_dr6_lensing_v1_baseline_masked_bias_tau_screening.fits" # TESTING
+            #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/maps/baseline/kappa_alm_data_act_dr6_lensing_v1_baseline_masked.fits" # TESTING
+            #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/maps/baseline/kappa_alm_data_act_dr6_lensing_v1_baseline_masked_tau_screening.fits" # TESTING
+    else:
+        #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/hilc_fullRes_TT_17000.fits" # 1.6 arcmin # OG
+        pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/hilc_fullRes_TT_17000_half_small_large_small_tau_screening.fits" # 1.6 arcmin # TESTING
+        #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/ilc_fullRes_TT_half_small_large_small_tau_screening.fits" # 1.6 arcmin # TESTING
+        #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/hilc_fullRes_TT_17000_small_large_tau_screening.fits" # 1.6 arcmin # TESTING
+        #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/ilc_actplanck_ymap.fits" # 1.6 arcmin # TESTING
+        #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/evals_1_bin_1.fits" # eigenvalue # TESTING
+        #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/hilc_fullRes_TT_17000_kSZ_filter.fits" # 1.6 arcmin # TESTING
+        #pathMap = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/hilc_fullRes_TT_17000_small_tau_screening.fits" # 1.6 arcmin # TESTING
     version_str = "_dr6"
+    if len(sys.argv) > 5:
+        if sys.argv[5] == "kappa":
+            version_str += "_kappa_bias"
+    version_str_bgs = ""
+    freq_str = ""
+    pathHit = None
+elif version == "websky":
+    version_str = "_websky"
+    version_str_bgs = ""
+    freq_str = ""
+    pathMask = '/pscratch/sd/b/boryanah/ACTxDESI/ACT/wide_mask_GAL070_apod_1.50_deg_wExtended_srcfree_Will.fits'
+    if "fwhm" in sys.argv[4]:
+        fwhm = np.float((sys.argv[4].split('_fwhm')[-1]).split('_')[0])
+    if "abacus" in sys.argv[4]:
+        map_dir = "/pscratch/sd/b/boryanah/websky/abacus/"
+        if "tau_abacus_fwhm" in sys.argv[4] and "noise15.0" in sys.argv[4]:
+            map_str = f"_tau_8192_ph201_fwhm{fwhm:.1f}_noise15.0"
+        elif "tau_abacus_fwhm" in sys.argv[4]:
+            map_str = f"_tau_8192_ph201_fwhm{fwhm:.1f}"
+        elif "fwhm" in sys.argv[4] and "noise15.0" in sys.argv[4]:
+            map_str = f"_8192_ph201_fwhm{fwhm:.1f}_noise15.0"
+        elif "fwhm" in sys.argv[4]:
+            map_str = f"_8192_ph201_fwhm{fwhm:.1f}"
+        elif "tau" in sys.argv[4]:
+            map_str = "_tau_8192_ph201"
+        else:
+            map_str = "_8192_ph201"
+        if "order" in sys.argv[4]:
+            #map_str = map_str.replace("ph201_", "ph201_order1_") # TESTING!!!!!!!!!!!!!!
+            map_str = map_str.replace("ph201_", "ph201_order1_brute_") # TESTING!!!!!!!!!!!!!!
+        if "unlensed" in sys.argv[4] and "tau" not in sys.argv[4]:
+            map_str = map_str.replace("_ph201", "")
+    else:
+        map_dir = "/pscratch/sd/b/boryanah/websky/"
+        map_str = ""
+        
+    if "unlensed" in sys.argv[4]:
+        pathMap = f'{map_dir}/unlensed_map{map_str}_small_tau_screening.fits'
+    elif "lensed" in sys.argv[4]:
+        if "small_large" in sys.argv[4]:
+            pathMap = f'{map_dir}/lensed_map{map_str}_small_large_tau_screening.fits'
+            version_str += "_small_large"
+        else:
+            pathMap = f'{map_dir}/lensed_map{map_str}_small_tau_screening.fits'
+    else:
+        #pathMap = f'{map_dir}/map{map_str}_small_tau_screening.fits' # this is pure tau
+        pathMap = f'{map_dir}/kappa{map_str}_tau_screening.fits'#print("Not sure what you want"); quit()
+        #pathMap = f'{map_dir}/map{map_str}_tau_screening.fits'#print("Not sure what you want"); quit()
+    pathHit = None
 #pathHit = "/pscratch/sd/r/rhliu/projects/ThumbStack/" + "act_dr5.01_s08s18_AA_f150_daynight_ivar.fits"
-pathHit = None
+#pathHit = None
+print(pathMap)
 
 if "Will" not in pathMask:
     mask_str = "_oldmask"
@@ -90,30 +205,83 @@ else:
     screening_str = ""
 
 if "tau_screening" in pathMap:
-    filterType = "meanring"
+    filterType = "meanring" # og
+    #filterType = "diskring" # TESTING!!!!!!!!!!!!
     Obs = 'tau'
 elif "lensing" in pathMap:
     filterType = "meanring"
     Obs = 'tsz'
 else:
     filterType = "diskring"
-    Obs = 'ksz'
+    #Obs = 'ksz' # og
+    Obs = 'ksz_anisotropic' # TESTING!!!! info hidden in vX, vY radian angle wrt theta
+    #Obs = 'tsz_anisotropic' # TESTING!!!! info hidden in vX, vY radian angle wrt theta
 
-    
 # Testing
 want_all = False #True # combine all galaxies in the 4 redshift bins, default is False
-#save = True # determines whether to calculate delta T anew (saves mask, delta T, maybe vel is separate? but the numbers need to match)
-save = False # False means use saved stuff # TESTING!!!!!!!!!!!!!!!!!!!!!!!!!!
+save = True # if yes calculates delta T anew (saves mask, delta T, maybe vel is separate? but the numbers need to match)
+#save = False # False means use saved stuff 
 doBootstrap = True #False #True # do bootstrap or not? (not needed if e.g. shuffling velocities)
 doMBins = False # we don't have mass bins yet
 doVShuffle = False #True # default measurement is False
-wantMF = True # default measurement is False
+wantMF = False # default measurement is False
+doOnlyFiltering = True #True # default is False; if True, compute dT decrements and return TESTING!!!!!!!!!!!; the only problem is that.... it doesn't compute covariance only stackedMap; we use this for anisotropic
+want_mix = False #True # DR9 with DR10 z where possible
 vshuff_str = "_vshuffle" if doVShuffle else ""
 cat_type = sys.argv[3] #"extended", "main"
+if cat_type == "halos":
+    assert version == "websky"
 cat_dr = sys.argv[4] # "dr9", "dr10" # default so far (want dr9 if mix)
-want_mix = False #True # DR9 with DR10 z where possible
-cat_dr_str = "_dr10" if cat_dr == "dr10" else ""
+if cat_dr == "dr10":
+    cat_dr_str = "_dr10"
+elif cat_dr == "lensed":
+    cat_dr_str = "_lensed"
+elif cat_dr == "lensed_abacus":
+    cat_dr_str = "_lensed_abacus"
+elif cat_dr == "lensed_abacus_small_large":
+    cat_dr_str = "_lensed_abacus_small_large"
+elif cat_dr == "lensed_abacus_fwhm1.6":
+    cat_dr_str = "_lensed_abacus_fwhm1.6"
+elif cat_dr == "lensed_abacus_fwhm2.1":
+    cat_dr_str = "_lensed_abacus_fwhm2.1"
+elif cat_dr == "lensed_abacus_fwhm1.4":
+    cat_dr_str = "_lensed_abacus_fwhm1.4"
+elif cat_dr == "lensed_order1_abacus_fwhm1.4":
+    cat_dr_str = "_lensed_order1_abacus_fwhm1.4"
+elif cat_dr == "kappa_order1_abacus":
+    cat_dr_str = "_kappa_order1_abacus"
+elif cat_dr == "lensed_abacus_fwhm1.6_noise15.0":
+    cat_dr_str = "_lensed_abacus_fwhm1.6_noise15.0"
+elif cat_dr == "lensed_tau_abacus":
+    cat_dr_str = "_lensed_tau_abacus"
+elif cat_dr == "unlensed_tau_abacus":
+    cat_dr_str = "_unlensed_tau_abacus"
+elif cat_dr == "tau_abacus":
+    cat_dr_str = "_tau_abacus"
+elif cat_dr == "lensed_tau_abacus_fwhm1.6":
+    cat_dr_str = "_lensed_tau_abacus_fwhm1.6"
+elif cat_dr == "unlensed_tau_abacus_fwhm1.6":
+    cat_dr_str = "_unlensed_tau_abacus_fwhm1.6"
+elif cat_dr == "unlensed_tau_abacus_fwhm2.1":
+    cat_dr_str = "_unlensed_tau_abacus_fwhm2.1"
+elif cat_dr == "unlensed_tau_abacus_fwhm1.4":
+    cat_dr_str = "_unlensed_tau_abacus_fwhm1.4"
+elif cat_dr == "unlensed_abacus_fwhm1.4":
+    cat_dr_str = "_unlensed_abacus_fwhm1.4"
+elif cat_dr == "tau_abacus_fwhm1.6":
+    cat_dr_str = "_tau_abacus_fwhm1.6"
+elif cat_dr == "unlensed":
+    cat_dr_str = "_unlensed"
+else:
+    cat_dr_str = ""
 mix_str = "_mix" if want_mix else ""
+doRandomPositions = False
+smooth = 0.03 #0.06 #0.18 # deg 0.06 is def
+smooth_str = f"_R{smooth:.2f}" if smooth != 0.06 else ""
+if doRandomPositions:
+    random_str = "_randompos"
+else:
+    random_str = ""
 
 # pick type of catalog
 comb_footprint =  bool(int(sys.argv[1])) 
@@ -124,7 +292,7 @@ recon_all_pz_bin = bool(int(sys.argv[2]))
 recon_bin_str = "_allbin" if recon_all_pz_bin else '_perbin'
 
 # apply cut in redshift accuracy (this is done elsewhere and here we are simply loading the correct file)
-max_sigmaz = 0.0 #0.05 #0.035 # 0 or 0.05 is used in analysis
+max_sigmaz = 0.0 #0.05 # 0.0 #0.05 #0.035 # 0 or 0.05 is used in analysis
 sigmaz_str = f"_sigmaz{max_sigmaz:.4f}" if not np.isclose(max_sigmaz, 0.) else ""
 
 # feeling lazy
@@ -139,15 +307,30 @@ only_str = ""
 
 # catalog name
 if cat_type == "main":
-    cat_fn = f"catalog{mix_str}{cat_dr_str}{cat_foot_str}{recon_bin_str}{sigmaz_str}{only_str}.txt" 
+    cat_fn = f"catalog{mix_str}{cat_dr_str}{cat_foot_str}{recon_bin_str}{sigmaz_str}{only_str}{random_str}{freq_str}.txt" 
 elif cat_type == "extended":
-    cat_fn = f"extended_catalog{mix_str}{cat_dr_str}{cat_foot_str}{recon_bin_str}{sigmaz_str}{only_str}.txt" 
+    cat_fn = f"extended_catalog{mix_str}{cat_dr_str}{cat_foot_str}{recon_bin_str}{sigmaz_str}{only_str}{random_str}{freq_str}.txt" 
 elif cat_type == "bgs":
-    #cat_fn = f"BGS_BRIGHT-21.5.txt" # spec # i think smolest? # TESTING
+    #cat_fn = f"BGS_BRIGHT-21.5.txt" # spec # i think smolest? # TESTING just cause fast
     #cat_fn = f"BGS_BRIGHT.txt" # new
     #cat_fn = f"BGS_BRIGHT_pz.txt" # newest0
-    cat_fn = f"BGS_BRIGHT_pz_logm10.5.txt" # newestest DEFAULT og
+    cat_fn = f"BGS_BRIGHT_pz_logm10.5{random_str}{smooth_str}.txt" # newestest DEFAULT og
     tracer = cat_fn.split(".txt")[0]
+elif cat_type == "bgs_lrg_elg_qso":
+    cat_fn = f"BGS_LRG_ELG_QSO.txt"
+elif cat_type == "des_y6":
+    perc = 10
+    cat_fn = f"DESY6_ABSM{perc:d}.fits"
+    cat_dr_str = "_des_y6"
+elif cat_type == "LS":
+    LOGM_MIN = 10.5
+    PHOTO_ERR = 0.1
+    cat_fn = f"sweep_LOGM{LOGM_MIN:.1f}_PHOTOZ{PHOTO_ERR:.1f}.fits"
+    cat_dr_str = "_LS"
+elif cat_type == "halos":
+    #cat_fn = f"halo_1.e13{cat_dr_str}.txt"
+    #cat_fn = f"halo_3.e12{cat_dr_str}.txt"
+    cat_fn = f"halo_6.e12{cat_dr_str}.txt"
 print(cat_fn)
 
 
@@ -187,14 +370,33 @@ tStart = time()
 # catalog name
 cat_dir = '/pscratch/sd/b/boryanah/ACTxDESI/DESI/'
 if cat_type == "bgs":
-    output_dir = f"/pscratch/sd/b/boryanah/ACTxDESI/output_{tracer}{filter_str}{lensing_str}{screening_str}/thumbstack/"
+    output_dir = f"/pscratch/sd/b/boryanah/ACTxDESI/output{version_str_bgs}_{tracer}{filter_str}{lensing_str}{screening_str}{smooth_str}/thumbstack/"
 else:
     if "extended" in cat_fn:
-        output_dir = f"/pscratch/sd/b/boryanah/ACTxDESI/output_extended{mix_str}{cat_dr_str}{cat_foot_str}{recon_bin_str}{sigmaz_str}{only_str}{vshuff_str}{version_str}{mask_str}{filter_str}{lensing_str}{screening_str}/thumbstack/"
+        output_dir = f"/pscratch/sd/b/boryanah/ACTxDESI/output_extended{mix_str}{cat_dr_str}{cat_foot_str}{recon_bin_str}{sigmaz_str}{only_str}{random_str}{vshuff_str}{version_str}{mask_str}{filter_str}{lensing_str}{screening_str}{smooth_str}/thumbstack/"
     else:
-        output_dir = f"/pscratch/sd/b/boryanah/ACTxDESI/output{mix_str}{cat_dr_str}{cat_foot_str}{recon_bin_str}{sigmaz_str}{only_str}{vshuff_str}{version_str}{mask_str}{filter_str}{lensing_str}{screening_str}/thumbstack/"
+        output_dir = f"/pscratch/sd/b/boryanah/ACTxDESI/output{mix_str}{cat_dr_str}{cat_foot_str}{recon_bin_str}{sigmaz_str}{only_str}{random_str}{vshuff_str}{version_str}{mask_str}{filter_str}{lensing_str}{screening_str}{smooth_str}/thumbstack/"
 
 if cat_type == "bgs":
+    catalogs = {
+        "DESI_pz1": Catalog(u, massConversion, name="DESI_pz1", nameLong="DESI pz bin 1", out_dir=cat_dir, save=False, cat_fn=cat_fn),
+    }
+elif cat_type == "bgs_lrg_elg_qso":
+    catalogs = {
+        "DESI_pz1": Catalog(u, massConversion, name="DESI_pz1", nameLong="DESI pz bin 1", out_dir=cat_dir, save=False, cat_fn=cat_fn),
+        "DESI_pz2": Catalog(u, massConversion, name="DESI_pz2", nameLong="DESI pz bin 2", out_dir=cat_dir, save=False, cat_fn=cat_fn),
+        "DESI_pz3": Catalog(u, massConversion, name="DESI_pz3", nameLong="DESI pz bin 3", out_dir=cat_dir, save=False, cat_fn=cat_fn),
+        "DESI_pz4": Catalog(u, massConversion, name="DESI_pz4", nameLong="DESI pz bin 4", out_dir=cat_dir, save=False, cat_fn=cat_fn),
+    }
+elif cat_type == "des_y6":
+    catalogs = {
+        "DESI_pz1": Catalog(u, massConversion, name="DESI_pz1", nameLong="DESI pz bin 1", out_dir=cat_dir, save=False, cat_fn=cat_fn),
+    }
+elif cat_type == "LS":
+    catalogs = {
+        "DESI_pz1": Catalog(u, massConversion, name="DESI_pz1", nameLong="DESI pz bin 1", out_dir=cat_dir, save=False, cat_fn=cat_fn),
+    }
+elif cat_type == "halos":
     catalogs = {
         "DESI_pz1": Catalog(u, massConversion, name="DESI_pz1", nameLong="DESI pz bin 1", out_dir=cat_dir, save=False, cat_fn=cat_fn),
     }
@@ -213,6 +415,7 @@ else:
 
 tStop = time()
 print("took "+str(round((tStop-tStart)/60., 2))+" min")
+print("CMB_map", pathMap)
 
 ###################################################################################
 # Read CMB maps
@@ -223,8 +426,12 @@ CMB_pathlist = [pathMap]
 CMB_masklist = [pathMask]
 CMB_name = ['act_dr6_f90']
 CMB_namepublic = ['ACT DR6 (90GHz)']
-CMB_nu = [90.e9]
-
+if freq == "f090":
+    CMB_nu = [90.e9]
+elif freq == "f150":
+    CMB_nu = [150.e9]
+else:
+    CMB_nu = [90.e9]
 cmbMap_list = []
 
 for i, path in enumerate(CMB_pathlist):
@@ -238,6 +445,22 @@ for i, path in enumerate(CMB_pathlist):
 catalogKeys = catalogs.keys()
 print(catalogKeys)
 
+"""
+# TESTING filter
+from pixell import enmap
+cmb_maps = []
+if version == "websky":
+    kappa_dir = "/pscratch/sd/b/boryanah/websky/abacus/"
+else:
+    kappa_dir = "/pscratch/sd/b/boryanah/ACTxDESI/ACT/maps/baseline/"
+for i in range(9):
+    if version == "websky":
+        #cmb_maps.append(enmap.read_map(kappa_dir + f"kappa_8192_ph201_tau_screening_diff_binc{i:d}.fits"))
+        cmb_maps.append(enmap.read_map(kappa_dir + f"kappa_8192_ph201_tau_screening_same_binc{i:d}.fits"))
+    else:
+        cmb_maps.append(enmap.read_map(kappa_dir + f"kappa_alm_data_act_dr6_lensing_v1_baseline_masked_diff_binc{i:d}.fits"))
+"""
+ 
 ###################################################################################
 ts_list = [[] for _ in range(len(CMB_masklist))]
 
@@ -260,7 +483,8 @@ for key in list(catalogKeys):
     for i, cmap in enumerate(cmbMap_list):
     
         ts = ThumbStack(u, catalog, 
-                        cmap.map(), 
+                        cmap.map(),  # tuksi
+                        #cmb_maps,  # TESTING!!!! filter
                         cmap.mask(), 
                         cmap.hit(), 
                         catalog.name + '_' + cmap.name,
@@ -270,7 +494,8 @@ for key in list(catalogKeys):
                         filterTypes=filterType, 
                         doMBins=doMBins, 
                         doBootstrap=doBootstrap,
-                        doVShuffle=doVShuffle, 
+                        doVShuffle=doVShuffle,
+                        doOnlyFiltering=doOnlyFiltering,
                         cmbNu=cmap.nu, 
                         cmbUnitLatex=cmap.unitLatex,
                         output_dir=output_dir,
@@ -286,12 +511,16 @@ for key in list(catalogKeys):
 
 # Next for plotting:
 
+# the question is -- what do we need minimally for plotting and I guess recording the 2D plot
+# if I am not mistaken you can do overlap flag and then go directly to computeStackedProfile with stackedMap=True
+
 # Parameters
 factor = (180.*60./np.pi)**2
-est = f'{Obs}_uniformweight'
-#est = 'tsz_uniformweight'
-#filterType = 'diskring'
-path = f"./figures/StackedMaps_{est}.png"
+if pathHit is not None:
+    est = f'{Obs}_varweight'
+else:
+    est = f'{Obs}_uniformweight'
+path = f"./figures/StackedMaps_{est}_{cat_type}{cat_dr_str}.png"
 
 # ###############################
 fig, subplots = plt.subplots(2, 2, figsize=(8,8), sharex='col', sharey='row')
@@ -302,20 +531,25 @@ for i, key in enumerate(list(catalogKeys)):
     for j in range(len(ts_list)):
         tsj = ts_list[j][i]
 
-        # ax.errorbar(tsj.RApArcmin, factor * tsj.stackedProfile[filterType+"_"+est], 
-        #             factor * tsj.sStackedProfile[filterType+"_"+est], 
-        #             label=CMB_namepublic[j], lw=2, ls='-.', capsize=6)
-        stackedMap = tsj.computeStackedProfile(filterType, est, iBootstrap=None, iVShuffle=None, tTh='', stackedMap=True)
-
+        stackedMap = tsj.computeStackedProfile(filterType, est, iBootstrap=None, iVShuffle=None, tTh='', stackedMap=True) # gives you a 2D map because of the stackedMap = True setting
+        
+        # this is empty and is shaped like cutout
         cutoutMap = tsj.cutoutGeometry()
+
+        # size of canvas in radians 
         size = cutoutMap.posmap()[0,:,:].max() - cutoutMap.posmap()[0,:,:].min()
 
-        dx = float(size) / (cutoutMap.shape[0]-1)
+        # size of pixel in radians
+        dx = float(size) / (cutoutMap.shape[0]-1) 
         dy = float(size) / (cutoutMap.shape[1]-1)
 
+        # centers of the pixels (index+0.5 times size)
         x = dx * (np.arange(cutoutMap.shape[0]+1) - 0.5)
         y = dy * (np.arange(cutoutMap.shape[1]+1) - 0.5)
         x,y = np.meshgrid(x, y, indexing='ij')
+
+        # save stackedMap filtertype cmap.name and obs or estimator rather
+        np.savez(f"{output_dir}/{catalogs[key].name}_{cmbMap_list[j].name}/stackedmap_{filterType}_{est}.npz", x_grid=x, y_grid=y, stackedMap=stackedMap)
 
         cp=ax.pcolormesh(x*180.*60./np.pi, y*180.*60./np.pi, stackedMap, linewidth=0, rasterized=True)
         # cp.set_cmap('viridis')
@@ -324,15 +558,7 @@ for i, key in enumerate(list(catalogKeys)):
         ax.set_xlabel('$x$ [arcmin]')
         ax.set_ylabel('$y$ [arcmin]')
 
-
-    # ax.plot(ts2.RApArcmin, factor * ts2.stackedProfile[filterType+"_"+est+"_theory_tsz"], ls='--', 
-    #     label="theory tsz")
     ax.set_title(key)
-    # ax.grid()
-    # if i>=2:
-        # ax.set_xlabel(r'$R$ [arcmin]')
-    # if i==0 or i==2:
-        # ax.set_ylabel(r'Compton Y-parameter $[\mathrm{arcmin}^2]$')
     
 # ax.legend(fontsize=10, labelspacing=0.1)
 plt.subplots_adjust(wspace=0, hspace=0)

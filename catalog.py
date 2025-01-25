@@ -300,6 +300,8 @@ class Catalog(object):
 
 
    def loadCatalog(self, nObj=None):
+      self.want_fits = False # B.H.
+      
       if type(self.pathOutCatalog) == list:
          for i, path in enumerate(self.pathOutCatalog):
             print("- load full catalog from "+path)
@@ -308,9 +310,29 @@ class Catalog(object):
             else:
                data = np.vstack((data, np.genfromtxt(path)))
       else:
-         print("- load full catalog from "+self.pathOutCatalog)
-         data = np.genfromtxt(self.pathOutCatalog)
+         if ".fits" in self.pathOutCatalog:
+            from astropy.table import Table
+            import fitsio
+            self.want_fits = True
+            data = Table(fitsio.read(self.pathOutCatalog))
+            self.nObj = len(data)
+            self.RA = data['RA']
+            self.DEC = data['DEC']
+            self.Z = data['Z']
+            self.vX = np.empty(self.nObj)
+            self.vY = np.empty(self.nObj)
+            self.vZ = data['vZ']
+            self.Mvir = 10.**(data['LOGM']+2.)
+            self.vR = np.empty(self.nObj)
+            self.integratedKSZ = np.empty(self.nObj)
+            self.integratedY = np.empty(self.nObj)
+            return
          
+         else:
+            print("- load full catalog from "+self.pathOutCatalog)
+            data = np.genfromtxt(self.pathOutCatalog)
+      
+      
       self.nObj = len(data[:nObj,0])
       #
       # sky coordinates and redshift
@@ -339,10 +361,9 @@ class Catalog(object):
       self.dZKaiser = data[:nObj,11]   # [Mpc/h]
       #
       # velocity in cartesian coordinates
-      self.vX = data[:nObj,12]   #[km/s]
-      self.vY = data[:nObj,13]   #[km/s]
-      #
       """
+      self.vX = data[:nObj,12]   #[km/s] # THIS IS ACTUALLY THE ANGLE WRT DEC OF THE FILAMENT B.H.
+      self.vY = data[:nObj,13]   #[km/s] # THIS IS ACTUALLY THE ANGLE WRT DEC OF THE FILAMENT B.H.
       self.vZ = data[:nObj,14]   #[km/s] # THIS IS ACTUALLY THE T ON LARGE SCALES B.H.
       # velocity in spherical coordinates,
       # from catalog of spherical displacements

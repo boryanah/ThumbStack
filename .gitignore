@@ -8,6 +8,10 @@
 *.txt
 *.swp
 *.ipynb
+*.png
+*~
+*bak
+*.npy
 
 # directories to exclude
 output/

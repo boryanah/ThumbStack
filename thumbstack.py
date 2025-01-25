@@ -1,4 +1,5 @@
 from headers import *
+import gc
 
 ##################################################################################
 ##################################################################################
@@ -6,7 +7,7 @@ from headers import *
 class ThumbStack(object):
 
 #   def __init__(self, U, Catalog, pathMap="", pathMask="", pathHit="", name="test", nameLong=None, save=False, nProc=1):
-   def __init__(self, U, Catalog, cmbMap, cmbMask, cmbHit=None, name="test", nameLong=None, save=False, nProc=1, filterTypes='diskring', doStackedMap=False, doMBins=False, doVShuffle=False, doBootstrap=False, cmbNu=150.e9, cmbUnitLatex=r'$\mu$K', output_dir="/pscratch/sd/b/boryanah/ACTxDESI/output/thumbstack/", Obs='ksz', wantMF=False, invPowerFunc=None, filterFuncRad=None, apod_pix=20):
+   def __init__(self, U, Catalog, cmbMap, cmbMask, cmbHit=None, name="test", nameLong=None, save=False, nProc=1, filterTypes='diskring', doStackedMap=False, doMBins=False, doVShuffle=False, doBootstrap=False, doOnlyFiltering=False, cmbNu=150.e9, cmbUnitLatex=r'$\mu$K', output_dir="/pscratch/sd/b/boryanah/ACTxDESI/output/thumbstack/", Obs='ksz', wantMF=False, invPowerFunc=None, filterFuncRad=None, apod_pix=20):
       
       self.nProc = nProc
       self.U = U
@@ -38,27 +39,19 @@ class ThumbStack(object):
       elif filterTypes=='all':
          self.filterTypes = np.array(['diskring', 'disk', 'ring', 'meanring'])
 
-      """
-      # ORIGINAL: estimators (ksz, tsz) and weightings (uniform, hit, var, ...)
-      # for stacked profiles, bootstrap cov and v-shuffle cov
-      if self.cmbHit is not None:
-         self.Est = ['tsz_uniformweight', 'tsz_varweight']   #['tsz_uniformweight', 'tsz_hitweight', 'tsz_varweight', 'ksz_uniformweight', 'ksz_hitweight', 'ksz_varweight', 'ksz_massvarweight']
-         self.EstBootstrap = ['tsz_uniformweight', 'tsz_varweight']  #['tsz_varweight', 'ksz_varweight']
-         self.EstVShuffle = []   #['ksz_varweight']
-         self.EstMBins = ['tsz_uniformweight', 'tsz_varweight']# ['tsz_varweight', 'ksz_varweight']
-      else:
-         self.Est = ['tsz_uniformweight'] #['tsz_uniformweight', 'ksz_uniformweight', 'ksz_massvarweight']
-         self.EstBootstrap = ['tsz_uniformweight'] #['tsz_uniformweight', 'ksz_uniformweight']
-         self.EstVShuffle = []   #['ksz_uniformweight']
-         self.EstMBins = ['tsz_uniformweight'] #['ksz_uniformweight'] #['tsz_uniformweight', 'ksz_uniformweight']
-      """
       # estimators (ksz, tsz) and weightings (uniform, hit, var, ...)
       # for stacked profiles, bootstrap cov and v-shuffle cov
       if self.cmbHit is not None:
+         """
          self.Est = [f'{Obs}_uniformweight', f'{Obs}_varweight']
          self.EstBootstrap = [f'{Obs}_uniformweight', f'{Obs}_varweight']
          self.EstVShuffle = []
          self.EstMBins = [f'{Obs}_uniformweight', f'{Obs}_varweight']
+         """
+         self.Est = [f'{Obs}_varweight']
+         self.EstBootstrap = [f'{Obs}_varweight']
+         self.EstVShuffle = []
+         self.EstMBins = [f'{Obs}_varweight']
       else:
          self.Est = [f'{Obs}_uniformweight']
          self.EstBootstrap = [f'{Obs}_uniformweight']
@@ -81,7 +74,6 @@ class ThumbStack(object):
       self.mMin = 0. #1.e6
       self.mMax = np.inf #1.e14 # 1.e17
 
-      
       # Output path
       self.pathOut = self.output_dir + "/" + self.name
       if not os.path.exists(self.pathOut):
@@ -101,13 +93,14 @@ class ThumbStack(object):
       self.loadAPRadii(filterTypes)
       self.loadMMaxBins() # B.H. not using this
       print("loaded mmax")
-      
-      if save:
+
+      # BRAT KOGATO PRAVISH SAMO STACKING DAI FALSE TESTING!!!!!!!!!!!!!!!!!!!!!!
+      if False: # means calculate the overlap of the cutout for each galaxy with the mask again (dude, this is so inefficient)
          self.saveOverlapFlag(nProc=self.nProc)
       self.loadOverlapFlag()
       print("overlap")
 
-      if wantMF:
+      if wantMF: # matched filter B.H. implemented so BS (be safe) XD
          assert invPowerFunc is not None
          assert filterFuncRad is not None
          self.invPowerMap = self.getInvPowerMap(invPowerFunc)
@@ -115,32 +108,40 @@ class ThumbStack(object):
          self.apod_pix = apod_pix
          self.saveMatchedFiltering(nProc=self.nProc)
          return
-      
-      if save:
+
+      # BRAT KOGATO PRAVISH SAMO STACKING DAI FALSE TESTING!!!!!!!!!!!!!!!!!!!!!!
+      if save:#save: # means calculate the diskring, meanring, etc. temperature bins again and save them
          self.saveFiltering(nProc=self.nProc)
       self.loadFiltering()
       print("filtering")
+
+      # TESTING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! B.H.
+      #return #quit()
       
-      # B.H. can we maybe comment this out? only used in varweighted stuff which we specify in filt type (we do uniform weights) might change in future
-      self.measureAllVarFromHitCount(plot=save)
+      # B.H. can we maybe comment this out? only used in varweighted stuff which we specify in filt type (we do uniform weights) might change in future; not necessary because hitmap is none for us anyways
+      self.measureAllVarFromHitCount(plot=False)#save)
       print("hitcount")
+
+      # B.H. stops after computing the temperature decrements; does not compute profiles or bootstrap 
+      if doOnlyFiltering:
+         return 
       
 #      self.measureAllMeanTZBins(plot=save, test=False)
 
-      # TESTING B.H. cause we kinda always want to redo this
+      # TESTING B.H. cause we kinda always want to redo this; I don't understand why we wouldn't
       if True: #if save:
-         self.saveAllStackedProfiles()
+         self.saveAllStackedProfiles() # ok, so this guy has both the theoretical profiles and the measured in computeStackedProfile -- it even has an option of computing the stackedMaps that can be given here and returning that nope I lied
       self.loadAllStackedProfiles()
       print("allstacked")
       
-      if save:
+      if save: #smh?! the point of the save I guess is that you can load what you just ran but this is silly...
          self.plotAllStackedProfiles()
          self.plotAllCov()
          self.computeAllSnr()
 
       #if save:
       if True:
-         if doStackedMap: # B.H. we don't do this typically
+         if doStackedMap: # B.H. we don't do this typically; actually this is less direct than just computeStackedProfile with stackedMap = True
             # save all stacked maps
             #self.saveAllStackedMaps()
             # save only the stacked maps for
@@ -158,7 +159,7 @@ class ThumbStack(object):
 
       if 'diskring' in filterTypes:
          # radii to use for AP filter: comoving Mpc/h
-         self.nRAp = 9 #30 #9  #4
+         #self.nRAp = 26 # 9
 
          # Aperture radii in Mpc/h
          #self.rApMinMpch = 1.
@@ -166,14 +167,35 @@ class ThumbStack(object):
          #self.RApMpch = np.linspace(self.rApMinMpch, self.rApMaxMpch, self.nRAp)
       
          # Aperture radii in arcmin
-         self.rApMinArcmin = 1.  #0.1   #1.  # 1.
-         self.rApMaxArcmin = 6.  #6.  #6.  # 4.
+         """
+         self.rApMinArcmin = 1.  
+         self.rApMaxArcmin = 6. 
          self.nRAp = 9
+         """
+
+         # anisotropic # TESTING!!!!!!! paper
+         self.rApMinArcmin = 1.
+         self.rApMaxArcmin = 14.
+         self.nRAp = 17 
+      
+         """
+         # anisotropic # TESTING!!!!!!! only used for plotting
+         self.rApMinArcmin = 1.
+         self.rApMaxArcmin = 9.
+         self.nRAp = 9
+         """
+
          self.RApArcmin = np.linspace(self.rApMinArcmin, self.rApMaxArcmin, self.nRAp)
       elif 'meanring' in filterTypes:
+         
          self.nRAp = 9
          self.rApMinArcmin = 0.  #0.1   #1.  # 1.
          self.rApMaxArcmin = 10.  #6.  #6.  # 4.
+         """ # TESTING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         self.nRAp = 9
+         self.rApMinArcmin = 0.  #0.1   #1.  # 1.
+         self.rApMaxArcmin = 0.5  #6.  #6.  # 4.
+         """
          self.RApArcminBins = np.linspace(self.rApMinArcmin, self.rApMaxArcmin, self.nRAp+1)
          self.RApArcmin = 0.5*(self.RApArcminBins[1:]+self.RApArcminBins[:-1])
 
@@ -193,7 +215,7 @@ class ThumbStack(object):
       # define geometry of small square maps to be extracted
       shape, wcs = enmap.geometry(np.array([[-0.5*dxDeg,-0.5*dyDeg],[0.5*dxDeg,0.5*dyDeg]])*utils.degree, res=self.resCutoutArcmin*utils.arcmin, proj=self.projCutout)
       cutoutMap = enmap.zeros(shape, wcs)
-
+      
       if test:
          print("cutout sides are dx, dy =", dxDeg*60., ",", dyDeg*60. , "arcmin")
          print("cutout pixel dimensions are", shape)
@@ -265,7 +287,10 @@ class ThumbStack(object):
    
    
    def loadOverlapFlag(self):
-      self.overlapFlag = np.genfromtxt(self.pathOut+"/overlap_flag.txt")
+      try: # B.H. if it misses overlap just assume youve already done it
+         self.overlapFlag = np.genfromtxt(self.pathOut+"/overlap_flag.txt")
+      except:
+         self.overlapFlag = np.ones(self.Catalog.nObj, dtype=np.float32)
    
    
    ##################################################################################
@@ -364,7 +389,14 @@ class ThumbStack(object):
 #      stampHit[:,:] = self.cmbHit.at(ipos, prefilter=False, mask_nan=False, order=0)
       
       # Here, I use bilinear interpolation
-      stampMap[:,:] = self.cmbMap.at(ipos, prefilter=True, mask_nan=False, order=1)
+      if isinstance(self.cmbMap, list):
+         stampMaps = []
+         for i in range(len(self.cmbMap)):
+            stampMap = self.cutoutGeometry()
+            stampMap[:,:] = self.cmbMap[i].at(ipos, prefilter=True, mask_nan=False, order=1)
+            stampMaps.append(stampMap)
+      else:
+         stampMap[:,:] = self.cmbMap.at(ipos, prefilter=True, mask_nan=False, order=1)
       stampMask[:,:] = self.cmbMask.at(ipos, prefilter=True, mask_nan=False, order=1)
       if self.cmbHit is not None:
          stampHit[:,:] = self.cmbHit.at(ipos, prefilter=True, mask_nan=False, order=1)
@@ -399,6 +431,8 @@ class ThumbStack(object):
          plots=enplot.plot(stampHit, grid=True)
          enplot.write(self.pathTestFig+"/stamphit_ra"+np.str(np.round(ra, 2))+"_dec"+np.str(np.round(dec, 2)), plots)
 
+      if isinstance(self.cmbMap, list):
+         return opos, stampMaps, stampMask, stampHit
       return opos, stampMap, stampMask, stampHit
 
 
@@ -614,7 +648,12 @@ class ThumbStack(object):
                   r1 = r0 * np.sqrt(2.)
                
                # perform the filtering
-               filtMap[filterType][iRAp], filtMask[filterType][iRAp], filtHitNoiseStdDev[filterType][iRAp], filtArea[filterType][iRAp] = self.aperturePhotometryFilter(opos, stampMap, stampMask, stampHit, r0, r1, filterType=filterType, test=test)
+               if isinstance(stampMap, list):
+                  r0 = 0.
+                  r1 = 0.25 / 60. * np.pi/180. # 0.5 arcmin
+                  filtMap[filterType][iRAp], filtMask[filterType][iRAp], filtHitNoiseStdDev[filterType][iRAp], filtArea[filterType][iRAp] = self.aperturePhotometryFilter(opos, stampMap[iRAp], stampMask, stampHit, r0, r1, filterType=filterType, test=test)
+               else:
+                  filtMap[filterType][iRAp], filtMask[filterType][iRAp], filtHitNoiseStdDev[filterType][iRAp], filtArea[filterType][iRAp] = self.aperturePhotometryFilter(opos, stampMap, stampMask, stampHit, r0, r1, filterType=filterType, test=test)
 
       if test:
          print(" plot the measured profile")
@@ -674,9 +713,6 @@ class ThumbStack(object):
       tStop = time()
       print("took", (tStop-tStart)/60., "min")
       
-      # tuks
-      print(self.Catalog.nObj, result.shape)
-      
       # unpack and save to file
       amp = np.array([result[iObj,0] for iObj in range(self.Catalog.nObj)])
       cov = np.array([result[iObj,1] for iObj in range(self.Catalog.nObj)])
@@ -688,30 +724,65 @@ class ThumbStack(object):
       
       print("Evaluate all filters on all objects")
       # loop over all objects in catalog
-#      result = np.array(map(self.analyzeObject, range(self.Catalog.nObj)))
+      #result = np.array(map(self.analyzeObject, range(self.Catalog.nObj)))
       tStart = time()
-      with sharedmem.MapReduce(np=nProc) as pool:
-         f = lambda iObj: self.analyzeObject(iObj, test=False)
-         result = np.array(pool.map(f, list(range(self.Catalog.nObj))))
-      tStop = time()
-      print("took", (tStop-tStart)/60., "min")
+      jump = 25000000
+      start = 0
+      stop = jump
+      if stop >= self.Catalog.nObj:
+         ending = ""
+      else:
+         ending = f"_start{start:d}_{stop:d}"
+      # TESTING!!!!!!!!
+      #start += jump
+      #stop += jump
+      while start < self.Catalog.nObj:
+         if stop > self.Catalog.nObj:
+            stop = self.Catalog.nObj
+         if ending != "":
+            ending = f"_start{start:d}_{stop:d}"
+            
+         with sharedmem.MapReduce(np=nProc) as pool:
+            f = lambda iObj: self.analyzeObject(iObj, test=False)
+            result = np.array(pool.map(f, list(range(start, stop))))
+         tStop = time()
+         print("took", (tStop-tStart)/60., "min")
 
+         # unpack and save to file
+         for iFilterType in range(len(self.filterTypes)):
+            filterType = self.filterTypes[iFilterType]
 
-      # unpack and save to file
-      for iFilterType in range(len(self.filterTypes)):
-         filterType = self.filterTypes[iFilterType]
+            filtMap = np.array([result[iObj,0][filterType][:] for iObj in range(stop - start)])
+            filtMask = np.array([result[iObj,1][filterType][:] for iObj in range(stop - start)])
+            filtHitNoiseStdDev = np.array([result[iObj,2][filterType][:] for iObj in range(stop - start)])
+            filtArea = np.array([result[iObj,3][filterType][:] for iObj in range(stop - start)])
 
-         filtMap = np.array([result[iObj,0][filterType][:] for iObj in range(self.Catalog.nObj)])
-         filtMask = np.array([result[iObj,1][filterType][:] for iObj in range(self.Catalog.nObj)])
-         filtHitNoiseStdDev = np.array([result[iObj,2][filterType][:] for iObj in range(self.Catalog.nObj)])
-         filtArea = np.array([result[iObj,3][filterType][:] for iObj in range(self.Catalog.nObj)])
+            if self.Catalog.want_fits:
+               from astropy.table import Table
+               
+               cat = {}
+               cat['filtMap'] = filtMap
+               del filtMap; gc.collect()
+               cat['filtMask'] = filtMask
+               del filtMask; gc.collect()
+               cat['filtHitNoiseStdDev'] = filtHitNoiseStdDev
+               del filtHitNoiseStdDev; gc.collect()
+               cat['filtArea'] = filtArea
+               del filtArea; gc.collect()
+               cat = Table(cat)
+               cat.write(self.pathOut+"/"+filterType+f"_filtall{ending}.fits")
+               del cat
+            else:
+               np.savetxt(self.pathOut+"/"+filterType+f"_filtmap{ending}.txt", filtMap)
+               np.savetxt(self.pathOut+"/"+filterType+f"_filtmask{ending}.txt", filtMask)
+               np.savetxt(self.pathOut+"/"+filterType+f"_filtnoisestddev{ending}.txt", filtHitNoiseStdDev)
+               np.savetxt(self.pathOut+"/"+filterType+f"_filtarea{ending}.txt", filtArea)
+
+         start += jump
+         stop += jump
+         del result
+         gc.collect()
          
-         np.savetxt(self.pathOut+"/"+filterType+"_filtmap.txt", filtMap)
-         np.savetxt(self.pathOut+"/"+filterType+"_filtmask.txt", filtMask)
-         np.savetxt(self.pathOut+"/"+filterType+"_filtnoisestddev.txt", filtHitNoiseStdDev)
-         np.savetxt(self.pathOut+"/"+filterType+"_filtarea.txt", filtArea)
-
-
    def loadFiltering(self):
       self.filtMap = {}
       self.filtMask = {}
@@ -739,23 +810,23 @@ class ThumbStack(object):
 
       # Here mask is 1 for objects we want to keep
       mask = np.ones_like(self.Catalog.RA)
-      print("start with fraction", np.sum(mask)/len(mask), len(mask), "of objects")
+      #print("start with fraction", np.sum(mask)/len(mask), len(mask), "of objects")
       if mVir is not None:
          mask *= (self.Catalog.Mvir>=mVir[0]) * (self.Catalog.Mvir<=mVir[1])
-         print("keeping fraction", np.sum(mask)/len(mask), "of objects after mass cut")
+         #print("keeping fraction", np.sum(mask)/len(mask), "of objects after mass cut")
       if z is not None:
          mask *= (self.Catalog.Z>=z[0]) * (self.Catalog.Z<=z[1])
-         print("keeping fraction", np.sum(mask)/len(mask), "of objects after further z cut")
+         #print("keeping fraction", np.sum(mask)/len(mask), "of objects after further z cut")
       if overlap:
          mask *= self.overlapFlag.copy()
-         print("keeping fraction", np.sum(mask)/len(mask), "of objects after further overlap cut")
+         #print("keeping fraction", np.sum(mask)/len(mask), "of objects after further overlap cut")
       # PS mask: look at largest aperture, and remove if any point within the disk or ring is masked
       if psMask:
          # The point source mask may vary from one filterType to another
          if filterType is None:
             filterType = list(self.filtMask.keys())[0]
          mask *= 1.*(np.abs(self.filtMask[filterType][:,-1])<1.)
-         print("keeping fraction", np.sum(mask)/len(mask), "of objects after PS mask")
+         #print("keeping fraction", np.sum(mask)/len(mask), "of objects after PS mask")
       mask *= extraSelection
       if outlierReject:
          mask = mask.astype(bool)
@@ -782,10 +853,10 @@ class ThumbStack(object):
             newMask = (np.abs(self.filtMap[filterType][:,:]) <= nSigmasCut * sigmas[np.newaxis,:])
             # take the intersection of the masks
             mask *= np.prod(newMask, axis=1).astype(bool)
-            print("keeping fraction", np.sum(1.*mask)/len(mask), "of objects after further outlier cut")
+            #print("keeping fraction", np.sum(1.*mask)/len(mask), "of objects after further outlier cut")
       # make sure the mask is boolean
       mask = mask.astype(bool)
-      print("keeping fraction", np.sum(1.*mask)/len(mask), "in the end")
+      #print("keeping fraction", np.sum(1.*mask)/len(mask), "in the end")
       return mask
 
 
@@ -825,7 +896,10 @@ class ThumbStack(object):
 #            print "bin edges"
 #            print binEdges
 #            print np.min(x), np.max(x)
-            
+
+
+            print(x.min(), x.max(), binEdges)
+
             # compute histograms
             binCenters, binEdges, binIndices = stats.binned_statistic(x, x, statistic='mean', bins=binEdges)
             binCounts, binEdges, binIndices = stats.binned_statistic(x, x, statistic='count', bins=binEdges)
@@ -861,7 +935,7 @@ class ThumbStack(object):
                # measured
                ax.errorbar(binCenters, binnedVar*(180.*60./np.pi)**2, yerr=sBinnedVar*(180.*60./np.pi)**2, fmt='.', label=r'measured')
                # interpolated
-               newX = np.logspace(np.log10(np.min(x)/2.), np.log10(np.max(x)*2.), 10.*nBins, 10.)
+               newX = np.logspace(np.log10(np.min(x)/2.), np.log10(np.max(x)*2.), 10*nBins, 10.)
                newY = np.array(list(map(fVarFromHitCount[iRAp], newX)))
                ax.plot(newX, newY*(180.*60./np.pi)**2, label=r'interpolated')
                #
@@ -986,10 +1060,8 @@ class ThumbStack(object):
       if mVir is None:
          mVir = [ts.mMin, ts.mMax]
 
-      print("B.H. mask should be None", mask)
       # select objects that overlap, and reject point sources
       if mask is None:
-         print("B.H. mVir, z", filterType, mVir, z)
          mask = ts.catalogMask(overlap=True, psMask=True, filterType=filterType, mVir=mVir, z=z)
 
 #      tMean = ts.meanT[filterType].copy()
@@ -1030,8 +1102,9 @@ class ThumbStack(object):
  #     tMean = tMean[mask,:]
       # -v/c [dimless]
       v = -ts.Catalog.vR[mask] / 3.e5
-      v -= np.mean(v) 
-
+      #v -= np.mean(v) # tuks!!!!!!!!!!!!!!!!!!! TESTING
+      # I don't think we should do this!!!!!!!!!!!!! tuks B.H.
+      
 #      # expected sigma_{v_{true}}, for the normalization
 #      #print "computing v1d norm"
 #      #tStartV = time()
@@ -1070,7 +1143,7 @@ class ThumbStack(object):
          s2Hit = s2Hit[J,:]
          s2Full = s2Full[J,:]
          m = m[J]
-
+         
       if iVShuffle is not None:
          # make sure each shuffling is independent,
          # and make the shuffling reproducible
@@ -1084,25 +1157,25 @@ class ThumbStack(object):
          v = v[J]
 
       # tSZ: uniform weighting
-      if est=='tsz_uniformweight':
+      if est=='tsz_uniformweight' or est=='tsz_anisotropic_uniformweight':
          weights = np.ones_like(s2Hit)
          norm = 1./np.sum(weights, axis=0)
       # tSZ: detector-noise weighted (hit count)
-      elif est=='tsz_hitweight':
+      elif est=='tsz_hitweight' or est=='tsz_anisotropic_hitweight':
          weights = 1./s2Hit
          norm = 1./np.sum(weights, axis=0)
       # tSZ: full noise weighted (detector noise + CMB)
-      elif est=='tsz_varweight':
+      elif est=='tsz_varweight' or est=='tsz_anisotropic_varweight':
          weights = 1./s2Full
          norm = 1./np.sum(weights, axis=0)
          
       # tau: uniform weighting
-      elif est=='tau_uniformweight': 
+      elif est=='tau_uniformweight' or est=='tau_anisotropic_uniformweight':
          weights = np.sign(v[:, np.newaxis]) * np.ones_like(s2Hit) # S[T_l]
          norm = 1./(np.mean(np.abs(v)) * np.sum(np.abs(weights), axis=0)) # 1/(<|T_l|> N)
          
       # kSZ: uniform weighting
-      elif est=='ksz_uniformweight':
+      elif est=='ksz_uniformweight' or est=='ksz_anisotropic_uniformweight':
          # remove mean temperature
          #t -= np.mean(t, axis=0)
 #         t -= tMean
@@ -1110,7 +1183,7 @@ class ThumbStack(object):
          #norm = sVTrue / np.sum(v[:,np.newaxis]*weights, axis=0)
          norm = np.std(v) / ts.Catalog.rV / np.sum(v[:,np.newaxis]*weights, axis=0)
       # kSZ: detector-noise weighted (hit count)
-      elif est=='ksz_hitweight':
+      elif est=='ksz_hitweight' or est=='ksz_anisotropic_hitweight':
          # remove mean temperature
          #t -= np.mean(t, axis=0)
 #         t -= tMean
@@ -1118,7 +1191,7 @@ class ThumbStack(object):
          #norm = sVTrue / np.sum(v[:,np.newaxis]*weights, axis=0)
          norm = np.std(v) / ts.Catalog.rV / np.sum(v[:,np.newaxis]*weights, axis=0)
       # kSZ: full noise weighted (detector noise + CMB)
-      elif est=='ksz_varweight':
+      elif est=='ksz_varweight' or est=='ksz_anisotropic_varweight':
          # remove mean temperature
          #t -= np.mean(t, axis=0)
 #         t -= tMean
@@ -1126,7 +1199,7 @@ class ThumbStack(object):
          #norm = sVTrue / np.sum(v[:,np.newaxis]*weights, axis=0)
          norm = np.std(v) / ts.Catalog.rV / np.sum(v[:,np.newaxis]*weights, axis=0)
       # kSZ: full noise weighted (detector noise + CMB)
-      elif est=='ksz_massvarweight':
+      elif est=='ksz_massvarweight' or est=='ksz_anisotropic_massvarweight':
          # remove mean temperature
          #t -= np.mean(t, axis=0)
 #         t -= tMean
@@ -1146,7 +1219,7 @@ class ThumbStack(object):
 
 
       # or, if requested, compute and return the stacked cutout map
-      else:
+      else: 
          # define chunks
          nChunk = ts.nProc
          chunkSize = int(ts.Catalog.nObj / nChunk)
@@ -1171,6 +1244,66 @@ class ThumbStack(object):
 
             # start with a null map for stacking
             resMap = ts.cutoutGeometry()
+            
+            # radian positions of each pixel
+            ipos = resMap.posmap()
+            X = ipos[0]
+            Y = ipos[1]
+            x, y = X[:, 0], Y[0, :]
+            XY = np.array([X.flatten(), Y.flatten()])
+            
+            # TESTING!!!!!!!!!!!!!! I am feeling a bit lazy tbqh....
+            # size of canvas in radians (this is for just x direction, but cutout is symmetric)
+            size = ipos[0,:,:].max() - ipos[0,:,:].min()
+            
+            # size of pixel in radians
+            dx = float(size) / (resMap.shape[0]-1)
+            dy = float(size) / (resMap.shape[1]-1)
+
+            # centers of the pixels (index+0.5 times size)
+            x_bins = dx * (np.arange(resMap.shape[0]+1) - 0.5)
+            y_bins = dy * (np.arange(resMap.shape[1]+1) - 0.5)
+            x_grid, y_grid = np.meshgrid(x_bins, y_bins, indexing='ij')
+            #XY = np.array([X.flatten(), Y.flatten()]) # same? I actually don't think this is right
+
+            x_grid = x_grid*180./np.pi*60.
+            y_grid = y_grid*180./np.pi*60.
+            cell_size = x_grid[1, 0]-x_grid[0, 0]
+            x_grid += cell_size/2.
+            y_grid += cell_size/2.
+            x_grid = x_grid[:-1, :-1]
+            y_grid = y_grid[:-1, :-1]
+            x_grid -= (x_grid.max()-x_grid.min())/2.
+            y_grid -= (y_grid.max()-y_grid.min())/2.
+
+            r = np.sqrt(x_grid**2+y_grid**2)
+            #mu = np.abs(y_grid/r)
+            th = np.arctan2(y_grid, x_grid)
+            th[th < 0.] += 2.*np.pi
+
+            """
+            from scipy.special import legendre
+            order = 2
+            Ln = legendre(order)
+            """
+            
+            r_bins = np.linspace(1., np.floor(x_grid.max()), 11)#6)
+            r_binc = (r_bins[:-1] + r_bins[1:]) / (2.0)
+            """
+            mu_bins = np.linspace(0., 1., 10)
+            mu_binc = (mu_bins[:-1] + mu_bins[1:]) / (2.0)
+            hist_norm, _, _ = np.histogram2d(r.flatten(), mu.flatten(), bins=[r_bins, mu_bins])
+            """
+            hist_norm, _ = np.histogram(r.flatten(), bins=r_bins)
+            
+            m_ell0 = np.zeros((len(chunk), len(r_binc)))
+            m_ell2 = np.zeros((len(chunk), len(r_binc)))
+            count = 0
+            want_random = False # TESTING
+            if want_random:
+               seed_def = 6000 # def
+               seed = 3000
+               np.random.seed(seed) # randomized
             for iObj in chunk:
                if iObj%10000==0:
                   print("- analyze object", iObj)
@@ -1178,10 +1311,64 @@ class ThumbStack(object):
                   # Object coordinates
                   ra = ts.Catalog.RA[iObj]   # in deg
                   dec = ts.Catalog.DEC[iObj] # in deg
-                  z = ts.Catalog.Z[iObj]
+                  z = ts.Catalog.Z[iObj] # not used
                   # extract postage stamp around it
                   opos, stampMap, stampMask, stampHit = ts.extractStamp(ra, dec, test=False)
-                  resMap += stampMap * weightsLong[iObj]
+                  if "anisotropic" in est:
+                     # randomized
+                     if want_random:
+                        alpha = np.random.rand()*2.*np.pi
+                        ca = np.cos(alpha)
+                        sa = np.sin(alpha)
+                     else:
+                        ca = ts.Catalog.vX[iObj] # cos(alpha)
+                        sa = ts.Catalog.vY[iObj] # sin(alpha)
+                     fun2D = RectBivariateSpline(x, y, stampMap, kx=1, ky=1)
+                     R = np.array([[ca, sa], [-sa, ca]]) # tested that this is the right
+                     #R = np.array([[ca, -sa], [sa, ca]]) # TESTING!!!! I think mirror reflected
+                     X_rot, Y_rot = np.dot(R, XY)
+                     stampMap = fun2D(X_rot, Y_rot, grid=False).reshape(resMap.shape)
+                     del X_rot, Y_rot
+                  resMap += (stampMap * weightsLong[iObj])
+
+                  if "anisotropic" in est:
+                     m0, _ = np.histogram(r.flatten(), bins=r_bins, weights=(stampMap * weightsLong[iObj]).flatten())
+                     #m0, _ = np.histogram(r.flatten(), bins=r_bins, weights=(stampMap).flatten()) # now
+                     #m0, _ = np.histogram(r.flatten(), bins=r_bins, weights=(stampMap*np.sign(np.random.rand()-0.5)).flatten()) # randw
+                     m2, _ = np.histogram(r.flatten(), bins=r_bins, weights=(stampMap * weightsLong[iObj]).flatten()*np.cos(2.*th.flatten()))
+                     #m2, _ = np.histogram(r.flatten(), bins=r_bins, weights=(stampMap).flatten()*np.cos(2.*th.flatten())) # now
+                     #m2, _ = np.histogram(r.flatten(), bins=r_bins, weights=(stampMap*np.sign(np.random.rand()-0.5)).flatten()*np.cos(2.*th.flatten())) # randw
+                     #m4, _ = np.histogram(r.flatten(), bins=r_bins, weights=(stampMap * weightsLong[iObj]).flatten()*np.cos(4.*th.flatten()))
+                     m0 /= hist_norm
+                     m2 /= hist_norm/2.
+                     #m4 /= hist_norm/2.
+                     m_ell0[count] = m0
+                     m_ell2[count] = m2
+                     
+               count += 1
+            if "anisotropic" in est:
+               # save the m_ell
+               # randomized
+               if want_random:
+                  random_str = "_random"
+                  if seed != seed_def: random_str += f"{seed}"
+               else:
+                  random_str = ""
+               #smooth_str = "_r006"
+               smooth_str = "_r003"
+               if self.cmbNu == 150.e9:
+                  version_str = "_dr5_f150"
+               elif self.cmbNu == 90.e9:
+                  version_str = "_dr5"
+               else:
+                  version_str = "_dr5"
+               if "varweight" in est:
+                  version_str += "_varweight"
+               #version_str += "_now"
+               #version_str += "_randw"
+               mell_dir = f"/pscratch/sd/b/boryanah/ACTxDESI/anisotropic{random_str}_wide{smooth_str}{version_str}/"
+               os.makedirs(mell_dir, exist_ok=True)
+               np.savez(f"{mell_dir}/mell2_{iChunk:d}.npz", m_ell0=m_ell0, m_ell2=m_ell2, r_bins=r_bins, gal_inds=chunk)
             return resMap
 
          # dispatch each chunk of objects to a different processor
@@ -1429,10 +1616,12 @@ class ThumbStack(object):
       if mVir is None:
          mVir = [self.mMin, self.mMax]
       tStart = time()
+      
       with sharedmem.MapReduce(np=nProc) as pool:
          f = lambda iSample: self.computeStackedProfile(filterType, est, iBootstrap=iSample, mVir=mVir, z=z)
          result = np.array(pool.map(f, list(range(nSamples))))
          #result = np.array(map(f, range(nSamples)))
+      
       tStop = time()
       print("took", (tStop-tStart)/60., "min")
       # unpack results
